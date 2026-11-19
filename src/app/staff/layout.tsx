@@ -2,12 +2,13 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,ClipboardList,Menu,X,LogOut,ShieldCheck,Users} from "lucide-react";
+import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users} from "lucide-react";
+import {staffRole,roleHome} from "./role-routes";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
 type Access={roles:string[];permissions:string[]};
 type NavItem={href:string;label:string;icon:typeof LayoutDashboard};
 const navigation:NavItem[]=[
- {href:"/staff/dashboard",label:"Dashboard",icon:LayoutDashboard},
+ {href:"/staff/manager",label:"Dashboard",icon:LayoutDashboard},
  {href:"/staff/kitchen",label:"Kitchen display",icon:ChefHat},
  {href:"/staff/tables",label:"Table service",icon:UtensilsCrossed},
  {href:"/staff/billing",label:"Billing & payments",icon:Wallet}
@@ -43,20 +44,26 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  void initialize();return()=>{active=false;};
  },[router]);
  const roles=access.roles.map(r=>r.toUpperCase());
- const manager=roles.includes("MANAGER")||roles.includes("OWNER");
- const kitchen=roles.includes("KITCHEN")||manager;
- const waiter=roles.includes("WAITER")||manager;
- const cashier=roles.includes("CASHIER")||manager;
- const allowed=(href:string)=>href==="/staff/dashboard"||(href==="/staff/kitchen"&&kitchen&&access.permissions.includes("kitchen:operate"))||(href==="/staff/tables"&&waiter&&access.permissions.includes("orders:manage"))||(href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read"));
- const home=roles.includes("KITCHEN")&&!manager?"/staff/kitchen":"/staff/dashboard";
- const links=navigation.filter(item=>allowed(item.href)).filter(item=>!(home==="/staff/kitchen"&&item.href==="/staff/kitchen")).map(item=>item.href==="/staff/dashboard"?{...item,href:home}:item);
+ const resolvedRole=staffRole(roles);
+ const home=roleHome(resolvedRole);
+ const manager=resolvedRole==="MANAGER";
+ const kitchen=resolvedRole==="KITCHEN"||manager;
+ const waiter=resolvedRole==="WAITER"||manager;
+ const cashier=resolvedRole==="CASHIER"||manager;
+ const allowed=(href:string)=>href===home||
+ (href==="/staff/kitchen"&&kitchen&&access.permissions.includes("kitchen:operate"))||
+ (href==="/staff/tables"&&waiter&&access.permissions.includes("orders:manage"))||
+ (href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read"));
+ const links=[{href:home,label:"Dashboard",icon:LayoutDashboard},
+ ...navigation.slice(1).filter(item=>item.href!==home&&allowed(item.href))];
  const current=pathname==="/staff"||pathname==="/staff/"?home:pathname;
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
- const role=manager?"Manager":roles.includes("KITCHEN")?"Kitchen staff":roles.includes("WAITER")?"Waiter":roles.includes("CASHIER")?"Cashier":"Staff";
+ const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
+ useEffect(()=>{if(loading||error)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,pathname,home,router]);
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
  if(loading)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Opening staff workspace…</main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><button className="mt-5 rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></main>;
- if(current!==home&&!allowed(current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
+ if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!allowed(current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
  return <div className="min-h-screen bg-[#f7f7f4] text-[#20241f] lg:flex">
  {open&&<button aria-label="Close navigation" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
  <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#1b241f] text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${open?"translate-x-0":"-translate-x-full"}`}>
