@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChefHat, CirclePlus, Clock3, LogOut, Plus, Search, Utensils, X } from "lucide-react";
+import { ArrowLeft, CirclePlus, Clock3, LogOut, Plus, Search, Utensils, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -119,7 +119,6 @@ export default function MenuPage() {
   }
 
   function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
-  const current=memberships.find(m=>m.tenantId===tenantId);
 
   return <main className="min-h-screen bg-[#f7f4ec]">
     <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9">
@@ -143,7 +142,7 @@ export default function MenuPage() {
       </div>
       {(error||notice)&&<div role={error?"alert":"status"} className={`mb-5 rounded-xl px-4 py-3 text-xs ${error?"bg-[#fbede7] text-[#a7442a]":"bg-[#eaf2e9] text-[#527a5b]"}`}>{error||notice}</div>}
       {categoryForm&&<form onSubmit={addCategory} className="panel mb-5 p-5 sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold">Create a category</h2><p className="mt-1 text-xs text-[#99998f]">Examples: Starters, Main course, Beverages.</p></div><button type="button" onClick={()=>setCategoryForm(false)} aria-label="Close category form"><X size={18}/></button></div><div className="grid gap-3 sm:grid-cols-[1fr_1.5fr_auto]"><Field label="Category name" value={newCategory.name} onChange={v=>setNewCategory(p=>({...p,name:v}))} placeholder="e.g. Starters" required/><Field label="Short description" value={newCategory.description} onChange={v=>setNewCategory(p=>({...p,description:v}))} placeholder="Optional description"/><button disabled={saving||!branchId} className="primary-button self-end disabled:opacity-50">{saving?"Saving…":"Save category"}</button></div></form>}
-      {itemForm&&<form onSubmit={addItem} className="panel mb-5 p-5 sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold">Add a menu item</h2><p className="mt-1 text-xs text-[#99998f]">The item will be added to this branch's menu.</p></div><button type="button" onClick={()=>setItemForm(false)} aria-label="Close item form"><X size={18}/></button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {itemForm&&<form onSubmit={addItem} className="panel mb-5 p-5 sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold">Add a menu item</h2><p className="mt-1 text-xs text-[#99998f]">The item will be added to this branch&apos;s menu.</p></div><button type="button" onClick={()=>setItemForm(false)} aria-label="Close item form"><X size={18}/></button></div><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Dish name" value={newItem.name} onChange={v=>setNewItem(p=>({...p,name:v}))} placeholder="e.g. Paneer tikka" required/>
         <Field label="Description" value={newItem.description} onChange={v=>setNewItem(p=>({...p,description:v}))} placeholder="Ingredients or details"/>
         <Field label="Price (₹)" value={newItem.price} onChange={v=>setNewItem(p=>({...p,price:v}))} placeholder="249" type="number" required min="0.01" step="0.01"/>
