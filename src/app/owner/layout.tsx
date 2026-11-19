@@ -2,9 +2,9 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {LayoutDashboard,ClipboardList,UtensilsCrossed,QrCode,Users,Menu,X,LogOut,ArrowLeft} from "lucide-react";
+import {BarChart3,LayoutDashboard,ClipboardList,UtensilsCrossed,QrCode,Users,Menu,X,LogOut,ArrowLeft} from "lucide-react";
 import "./owner.css";
-const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/orders",label:"Orders & kitchen",icon:ClipboardList},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:QrCode},{href:"/owner/staff",label:"Team & access",icon:Users}];
+const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/analytics",label:"Analytics & reports",icon:BarChart3},{href:"/owner/orders",label:"Orders & kitchen",icon:ClipboardList},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:QrCode},{href:"/owner/staff",label:"Team & access",icon:Users}];
 export default function OwnerLayout({children}:{children:React.ReactNode}){
  const pathname=usePathname();const router=useRouter();const [open,setOpen]=useState(false);const [authorized,setAuthorized]=useState(false);
  useEffect(()=>{const token=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!token||!raw){router.replace("/login?next="+encodeURIComponent(pathname));return;}try{const user=JSON.parse(raw);const roles=JSON.stringify(user.memberships??[]).toUpperCase();if(!roles.includes("OWNER")&&!user.authorities?.includes("PLATFORM_ADMIN")){router.replace("/");return;}setAuthorized(true);}catch{router.replace("/login");}},[pathname,router]);
