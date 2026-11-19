@@ -89,8 +89,11 @@ export default function StaffPage() {
       const payload=await response.json();
       if(!response.ok||!payload.success)throw new Error(payload.message??"Could not create staff account.");
       setShowForm(false);setForm({name:"",email:"",phone:"",temporaryPassword:"",roleKey:"WAITER"});
-      const refreshed=await fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${branchId}`,{headers:{Authorization:`Bearer ${token}`}});
-      const data=await refreshed.json();if(refreshed.ok&&data.success)setStaff(data.data);
+      setSaving(false);
+      // Creation has already succeeded; do not block confirmation on a second network request.
+      void fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${branchId}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"})
+        .then(async refreshed=>{if(!refreshed.ok)return;const data=await refreshed.json();if(data.success)setStaff(data.data);})
+        .catch(()=>{});
     }catch(e){setError(e instanceof Error?e.message:"Unable to create staff account.");}
     finally{setSaving(false);}
   }
