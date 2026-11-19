@@ -2,10 +2,19 @@
 import {useEffect,useState} from "react";
 import {RefreshCw} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
+async function readApiResponse(response:Response):Promise<{success?:boolean;message?:string;data?:unknown}>{
+ const raw=await response.text();
+ if(!raw.trim()){
+  if(response.ok)return {success:true,data:[]};
+  throw new Error(response.status===404?"This feature is not available on the backend yet.":`Server returned HTTP ${response.status} with no response body.`);
+ }
+ try{return JSON.parse(raw) as {success?:boolean;message?:string;data?:unknown};}
+ catch{throw new Error(`Server returned an invalid response (HTTP ${response.status}).`);}
+}
 type Customer={id:string;name?:string;email?:string;phone?:string;orderCount:number;totalSpent:number;lastOrderAt?:string;loyaltyPoints?:number;marketingConsent?:boolean};
 export default function Customers(){const [token,setToken]=useState(""),[tenant,setTenant]=useState(""),[customers,setCustomers]=useState<Customer[]>([]),[error,setError]=useState(""),[loading,setLoading]=useState(false),[reload,setReload]=useState(0),[search,setSearch]=useState("");
 useEffect(()=>{try{setToken(localStorage.getItem("restaurantos_access_token")??"");setTenant(JSON.parse(localStorage.getItem("restaurantos_user")??"{}").memberships?.[0]?.tenantId??"");}catch{}},[]);
-useEffect(()=>{if(!token||!tenant)return;let active=true;setLoading(true);setError("");fetch(API+"/api/v1/tenants/"+tenant+"/customers/analytics",{headers:{Authorization:"Bearer "+token},cache:"no-store"}).then(async r=>{const p=await r.json();if(!r.ok||!p.success||!Array.isArray(p.data))throw Error(p.message??"Customer analytics API is not available yet.");if(active)setCustomers(p.data);}).catch(e=>{if(active)setError(e instanceof Error?e.message:"Could not load customers");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false};},[token,tenant,reload]);
+useEffect(()=>{if(!token||!tenant)return;let active=true;setLoading(true);setError("");fetch(API+"/api/v1/tenants/"+tenant+"/customers/analytics",{headers:{Authorization:"Bearer "+token},cache:"no-store"}).then(async r=>{const p=await readApiResponse(r);if(!r.ok||!p.success||!Array.isArray(p.data))throw Error(p.message??"Customer analytics API is not available yet.");if(active)setCustomers(p.data as Customer[]);}).catch(e=>{if(active)setError(e instanceof Error?e.message:"Could not load customers");}).finally(()=>{if(active)setLoading(false);});return()=>{active=false};},[token,tenant,reload]);
 const visible=customers.filter(c=>[c.name,c.email,c.phone].some(v=>v?.toLowerCase().includes(search.toLowerCase())));const repeat=customers.filter(c=>c.orderCount>1).length;const money=(n:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(n);
 return <main className="min-h-screen bg-[#f7f7f4]"><div className="mx-auto max-w-6xl px-4 py-8 sm:px-8"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#d36c47]">Owner / Growth</p><h1 className="mt-2 text-3xl font-extrabold">Customers & loyalty</h1><p className="mt-2 text-sm text-[#7b857c]">Understand returning guests, lifetime value and loyalty activity.</p></div><button onClick={()=>setReload(n=>n+1)} className="rounded-xl border bg-white px-4 py-2 text-xs font-bold"><RefreshCw size={14} className="mr-2 inline"/>Refresh</button></div>
 <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">{[["Known customers",customers.length],["Repeat customers",repeat],["Repeat customer rate",customers.length?Math.round(repeat/customers.length*100)+"%":"—"],["Recorded order value",money(customers.reduce((n,c)=>n+Number(c.totalSpent||0),0))]].map(([label,value],i)=><div key={i} className="rounded-2xl border bg-white p-5"><div className="text-xs text-[#7b857c]">{String(label)}</div><div className="mt-3 text-2xl font-extrabold">{String(value)}</div></div>)}</div>
