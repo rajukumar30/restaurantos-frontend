@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Download, ExternalLink, Plus, QrCode, Users, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import QRCode from "qrcode";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
@@ -13,6 +13,7 @@ type RestaurantTable = { id: string; tableNumber: string; displayName: string; s
 type QrPreview = { table: RestaurantTable; image: string; url: string };
 
 export default function TablesPage() {
+ const ownerRoute=usePathname().startsWith("/owner");
   const router = useRouter();
   const [token,setToken] = useState("");
   const [demo,setDemo] = useState(false);
@@ -119,7 +120,7 @@ export default function TablesPage() {
   return <main className="min-h-screen bg-[#f7f4ec]">
     <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9">
       <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Tables & QR</div></div></div>
-      <div className="flex items-center gap-2"><Link href="/" className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link>{!demo&&<button onClick={logout} className="ghost-button">Sign out</button>}</div>
+      <div className="flex items-center gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link>{!demo&&<button onClick={logout} className="ghost-button">Sign out</button>}</div>
     </header>
     <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
       <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
