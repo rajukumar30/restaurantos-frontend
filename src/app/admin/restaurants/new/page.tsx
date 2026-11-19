@@ -45,8 +45,17 @@ export default function NewRestaurantPage() {
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
         body:JSON.stringify({...details,addressJson}),
       });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.message ?? "Could not create restaurant.");
+      const raw = await response.text();
+      let payload: {success?:boolean;message?:string;data?:{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}} | null = null;
+      if (raw.trim()) {
+        try { payload = JSON.parse(raw); } catch { /* Some upstream errors return HTML instead of JSON. */ }
+      }
+      if (!response.ok) {
+        const reason = payload?.message ?? (response.status === 401 ? "Your session expired. Please sign in again." : response.status === 403 ? "Your account does not have platform administrator access." : response.status === 409 ? "This restaurant or owner email already exists." : response.status >= 500 ? "The server could not complete onboarding. Please check Render logs before retrying; the request may have reached the server." : "The server rejected the onboarding request.");
+        throw new Error(`${reason} (HTTP ${response.status})`);
+      }
+      if (!payload?.success || !payload.data) throw new Error("The server returned an empty or unexpected response. Check Render logs and confirm whether the restaurant was created before retrying.");
+
       setCreated(payload.data);
       setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressLine1:"", addressLine2:"", landmark:"", city:"", state:"", postalCode:"", country:"India" });
     } catch (err) {
