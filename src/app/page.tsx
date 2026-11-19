@@ -37,13 +37,13 @@ export default function Home() {
         <nav className="w-full">
           <div className="nav-label">Workspace</div>
           <NavItem icon={LayoutDashboard} label="Overview" active/>
-          <NavItem icon={ClipboardList} label="Orders"/>
+          <Link href="/orders" className="nav-link"><ClipboardList className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Orders</span></Link>
           <Link href="/menu" className="nav-link"><Utensils className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Menu</span></Link>
           <Link href="/tables" className="nav-link"><QrCode className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Tables & QR</span></Link>
           <NavItem icon={Users} label="Customers"/>
           <div className="nav-label">Manage</div>
           <NavItem icon={Store} label="Branches"/>
-          <NavItem icon={Utensils} label="Kitchen"/>
+          <Link href="/orders" className="nav-link"><Utensils className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Kitchen</span></Link>
           <NavItem icon={CircleDollarSign} label="Payments"/>
           <NavItem icon={Settings2} label="Settings"/>
         </nav>
