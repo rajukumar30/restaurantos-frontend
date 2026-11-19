@@ -17,6 +17,7 @@ type Dashboard = {
 const money=(v:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(Number(v)||0);
 const links=[
  {href:"/owner/",label:"Overview",icon:LayoutDashboard},
+ {href:"/owner/analytics",label:"Analytics & reports",icon:TrendingUp},
  {href:"/owner/orders",label:"Orders & kitchen",icon:ChefHat},
  {href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},
  {href:"/owner/tables",label:"Tables & QR",icon:Smartphone},
