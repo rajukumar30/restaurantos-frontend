@@ -32,8 +32,9 @@ export default function LoginPage() {
         name: payload.data.name,
         email: payload.data.email,
         authorities: payload.data.authorities,
+        memberships: payload.data.memberships ?? [],
       }));
-      router.push(payload.data.authorities.includes("PLATFORM_ADMIN") ? "/admin/restaurants/new" : "/");
+      router.push(payload.data.authorities.includes("PLATFORM_ADMIN") ? "/admin/restaurants/new" : payload.data.memberships?.length ? "/staff" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
