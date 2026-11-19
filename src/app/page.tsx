@@ -10,9 +10,9 @@ export default function WorkspaceEntry(){
   try{
    const user=JSON.parse(raw);
    const memberships=user.memberships??[];
-   const roles=memberships.map((m:{roles?:string})=>m.roles??"").join(" ");
+   const roles=JSON.stringify(memberships).toUpperCase();
    if(user.authorities?.includes("PLATFORM_ADMIN"))router.replace("/admin/");
-   else if(/OWNER/i.test(roles))router.replace("/owner/");
+   else if(roles.includes("OWNER"))router.replace("/owner/");
    else if(memberships.length)router.replace("/staff/");
    else router.replace("/login");
   }catch{router.replace("/login");}
