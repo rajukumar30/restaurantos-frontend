@@ -11,7 +11,7 @@ export default function NewRestaurantPage() {
   const router = useRouter();
   const [token, setToken] = useState("");
   const [authorized, setAuthorized] = useState(false);
-  const [form, setForm] = useState({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressJson:"{}" });
+  const [form, setForm] = useState({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressLine1:"", addressLine2:"", landmark:"", city:"", state:"", postalCode:"", country:"India" });
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}|null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,18 +38,19 @@ export default function NewRestaurantPage() {
     setCreated(null);
     setLoading(true);
     try {
-      JSON.parse(form.addressJson);
+      const {addressLine1,addressLine2,landmark,city,state,postalCode,country,...details}=form;
+      const addressJson=JSON.stringify({line1:addressLine1.trim(),line2:addressLine2.trim(),landmark:landmark.trim(),city:city.trim(),state:state.trim(),postalCode:postalCode.trim(),country:country.trim()});
       const response = await fetch(`${API}/api/v1/platform/restaurants`, {
         method:"POST",
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify(form),
+        body:JSON.stringify({...details,addressJson}),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.message ?? "Could not create restaurant.");
       setCreated(payload.data);
       setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressJson:"{}" });
     } catch (err) {
-      setError(err instanceof SyntaxError ? "Address must be valid JSON." : err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }
   }
 
@@ -77,7 +78,20 @@ export default function NewRestaurantPage() {
             <Field label="Restaurant name" value={form.restaurantName} onChange={v=>update("restaurantName",v)} placeholder="e.g. The Green Table" required/>
             <Field label="First branch name" value={form.branchName} onChange={v=>update("branchName",v)} placeholder="e.g. Sector 62" required/>
             <Field label="Branch phone" value={form.branchPhone} onChange={v=>update("branchPhone",v)} placeholder="+91…"/>
-            <Field label="Address JSON" value={form.addressJson} onChange={v=>update("addressJson",v)} placeholder='{"line1":"…","city":"…"}'/>
+
+          </div>
+          <div className="mt-7 border-t border-[#eeeae2] pt-6">
+            <h3 className="font-semibold text-sm mb-1">Branch address</h3>
+            <p className="text-xs text-[#99998f] mb-5">Enter the address normally. RestaurantOS will format it automatically.</p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2"><Field label="Street address / Building" value={form.addressLine1} onChange={v=>update("addressLine1",v)} placeholder="Building number, street or road" required/></div>
+              <Field label="Area / Locality" value={form.addressLine2} onChange={v=>update("addressLine2",v)} placeholder="Sector, neighborhood or locality"/>
+              <Field label="Landmark" value={form.landmark} onChange={v=>update("landmark",v)} placeholder="Near a known landmark"/>
+              <Field label="City" value={form.city} onChange={v=>update("city",v)} placeholder="e.g. Bengaluru" required/>
+              <Field label="State / Province" value={form.state} onChange={v=>update("state",v)} placeholder="e.g. Karnataka" required/>
+              <Field label="PIN / Postal code" value={form.postalCode} onChange={v=>update("postalCode",v)} placeholder="e.g. 560001" required/>
+              <Field label="Country" value={form.country} onChange={v=>update("country",v)} placeholder="e.g. India" required/>
+            </div>
           </div>
         </section>
         <section className="panel p-5 sm:p-7"><div className="flex items-center gap-3 mb-6"><div className="h-10 w-10 rounded-xl bg-[#eaf0e9] text-[#527a5b] grid place-items-center"><UserRound size={18}/></div><div><h2 className="font-bold">Restaurant owner</h2><p className="text-xs text-[#99998f] mt-1">This person receives owner access to the first branch.</p></div></div>
