@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, LockKeyhole, Mail, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,13 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Best-effort warm-up for the free Render instance while credentials are entered.
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(API + "/actuator/health", { mode: "no-cors", signal: controller.signal, cache: "no-store" }).catch(() => {});
+    return () => controller.abort();
+  }, []);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -24,8 +31,13 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
-      const payload = await response.json();
-      if (!response.ok || !payload.success) throw new Error(payload.message ?? "Unable to sign in.");
+      const raw = await response.text();
+      let payload = null;
+      if (raw.trim()) {
+        try { payload = JSON.parse(raw); } catch { /* Upstream can return HTML. */ }
+      }
+      if (!response.ok) throw new Error(payload?.message ?? ("Login failed (HTTP " + response.status + ")."));
+      if (!payload?.success || !payload.data) throw new Error("Login server returned an empty or invalid response. Please retry.");
       localStorage.setItem("restaurantos_access_token", payload.data.accessToken);
       localStorage.setItem("restaurantos_user", JSON.stringify({
         userId: payload.data.userId,
