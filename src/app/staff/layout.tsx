@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History,Flame} from "lucide-react";
+import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History} from "lucide-react";
 import {staffRole,roleHome} from "./role-routes";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
 type Access={roles:string[];permissions:string[]};
@@ -56,8 +56,6 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  (href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read"));
  const extra=[
   ...(kitchen&&access.permissions.includes("kitchen:operate")?[
-   {href:"/staff/operations/kitchen-incoming",label:"Incoming orders",icon:ClipboardList},
-   {href:"/staff/operations/kitchen-preparing",label:"Preparing",icon:Flame},
    {href:"/staff/operations/kitchen-history",label:"Kitchen history",icon:History}]:[]),
   ...(waiter&&access.permissions.includes("orders:manage")?[
    {href:"/staff/operations/waiter-orders",label:"Active orders",icon:ClipboardList},
