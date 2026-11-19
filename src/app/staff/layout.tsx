@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users} from "lucide-react";
+import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History,Flame} from "lucide-react";
 import {staffRole,roleHome} from "./role-routes";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
 type Access={roles:string[];permissions:string[]};
@@ -54,8 +54,21 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  (href==="/staff/kitchen"&&kitchen&&access.permissions.includes("kitchen:operate"))||
  (href==="/staff/tables"&&waiter&&access.permissions.includes("orders:manage"))||
  (href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read"));
+ const extra=[
+  ...(kitchen&&access.permissions.includes("kitchen:operate")?[
+   {href:"/staff/operations/kitchen-incoming",label:"Incoming orders",icon:ClipboardList},
+   {href:"/staff/operations/kitchen-preparing",label:"Preparing",icon:Flame},
+   {href:"/staff/operations/kitchen-history",label:"Kitchen history",icon:History}]:[]),
+  ...(waiter&&access.permissions.includes("orders:manage")?[
+   {href:"/staff/operations/waiter-orders",label:"Active orders",icon:ClipboardList},
+   {href:"/staff/operations/waiter-history",label:"Order history",icon:History}]:[]),
+  ...(manager&&access.permissions.includes("orders:manage")?[
+   {href:"/staff/operations/manager-orders",label:"Live orders",icon:Clock3}]:[]),
+  ...(cashier&&access.permissions.includes("payments:read")?[
+   {href:"/staff/operations/cashier-orders",label:"Billing queue",icon:ClipboardList}]:[])
+ ];
  const links=[{href:home,label:"Dashboard",icon:LayoutDashboard},
- ...navigation.slice(1).filter(item=>item.href!==home&&allowed(item.href))];
+ ...navigation.slice(1).filter(item=>item.href!==home&&allowed(item.href)),...extra];
  const current=pathname==="/staff"||pathname==="/staff/"?home:pathname;
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
@@ -63,7 +76,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
  if(loading)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Opening staff workspace…</main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><button className="mt-5 rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></main>;
- if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!allowed(current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
+ if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!links.some(item=>item.href===current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
  return <div className="min-h-screen bg-[#f7f7f4] text-[#20241f] lg:flex">
  {open&&<button aria-label="Close navigation" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
  <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#1b241f] text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${open?"translate-x-0":"-translate-x-full"}`}>
