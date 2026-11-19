@@ -39,7 +39,7 @@ export default function Home() {
           <NavItem icon={LayoutDashboard} label="Overview" active/>
           <NavItem icon={ClipboardList} label="Orders"/>
           <Link href="/menu" className="nav-link"><Utensils className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Menu</span></Link>
-          <NavItem icon={QrCode} label="Tables & QR"/>
+          <Link href="/tables" className="nav-link"><QrCode className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Tables & QR</span></Link>
           <NavItem icon={Users} label="Customers"/>
           <div className="nav-label">Manage</div>
           <NavItem icon={Store} label="Branches"/>
