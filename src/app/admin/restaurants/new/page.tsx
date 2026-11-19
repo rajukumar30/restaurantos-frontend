@@ -13,7 +13,7 @@ export default function NewRestaurantPage() {
   const [authorized, setAuthorized] = useState(false);
   const [form, setForm] = useState({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressJson:"{}" });
   const [error, setError] = useState("");
-  const [created, setCreated] = useState<{tenantId:string;branchId:string;slug:string}|null>(null);
+  const [created, setCreated] = useState<{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}|null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -69,7 +69,7 @@ export default function NewRestaurantPage() {
     <div className="mx-auto max-w-4xl px-5 py-9 sm:px-8 sm:py-12">
       <Link href="/" className="inline-flex items-center gap-2 text-xs text-[#77796f] mb-8"><ArrowLeft size={14}/> Dashboard overview</Link>
       <div className="mb-8"><div className="eyebrow">Platform / Restaurants</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Onboard a restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Create a restaurant workspace, its first branch and the owner account in one step.</p></div>
-      {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><p className="mt-2 text-xs">Slug: {created.slug} · Tenant ID: {created.tenantId}</p><p className="text-xs mt-1">The owner can now sign in using the email and password you set.</p></div>}
+      {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><p className="mt-2 text-xs">Restaurant URL: <a className="font-bold underline" href={created.restaurantUrl} target="_blank" rel="noreferrer">{created.restaurantUrl}</a></p><p className="text-xs mt-1">Subdomain: {created.subdomain} · Workspace slug: {created.slug}</p><p className="text-xs mt-1">The owner can sign in using the email and password you set. The subdomain will become reachable after wildcard DNS and Vercel domain configuration are completed.</p></div>}
       {error && <div role="alert" className="mb-6 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
       <form onSubmit={submit} className="space-y-6">
         <section className="panel p-5 sm:p-7"><div className="flex items-center gap-3 mb-6"><div className="h-10 w-10 rounded-xl bg-[#f5eee5] text-[#d56a45] grid place-items-center"><Store size={18}/></div><div><h2 className="font-bold">Restaurant details</h2><p className="text-xs text-[#99998f] mt-1">The tenant workspace shared by all branches.</p></div></div>
