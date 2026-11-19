@@ -60,7 +60,7 @@ export default function LoginPage() {
          (staffRole(roles)==="WAITER"&&next==="/staff/tables")||
          (staffRole(roles)==="CASHIER"&&next==="/staff/billing")))
       );
-      const safeNext=allowedNext?next:destination;
+      const safeNext=allowedNext&&next?next:destination;
       router.replace(safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
