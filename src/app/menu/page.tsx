@@ -16,6 +16,7 @@ const emptyItem = { categoryId:"", name:"", description:"", price:"", dietaryTyp
 export default function MenuPage() {
   const router=useRouter();
   const [token,setToken]=useState("");
+  const [demoMode,setDemoMode]=useState(false);
   const [memberships,setMemberships]=useState<Membership[]>([]);
   const [tenantId,setTenantId]=useState("");
   const [branches,setBranches]=useState<Branch[]>([]);
@@ -34,7 +35,34 @@ export default function MenuPage() {
   useEffect(()=>{
     const accessToken=localStorage.getItem("restaurantos_access_token")??"";
     const rawUser=localStorage.getItem("restaurantos_user");
-    if(!accessToken||!rawUser){router.replace("/login");return;}
+    if(!accessToken||!rawUser){
+      const demoRequested=new URLSearchParams(window.location.search).get("demo")==="1";
+      if(demoRequested){
+        const demoTenant="demo-restaurant";
+        const demoBranch="demo-main";
+        setDemoMode(true);
+        setMemberships([{tenantId:demoTenant,tenantName:"The Olive Kitchen",roles:"Owner"}]);
+        setTenantId(demoTenant);
+        setBranches([{id:demoBranch,name:"Indiranagar · Main branch",branchCode:"MAIN"}]);
+        setBranchId(demoBranch);
+        setCategories([
+          {id:"cat-small-plates",name:"Small plates",description:"A little something to start",sortOrder:0,active:true,items:[
+            {id:"item-paneer",categoryId:"cat-small-plates",name:"Tandoori paneer tikka",description:"Smoky paneer, mint chutney, pickled onions",price:289,dietaryType:"VEG",prepTimeMinutes:18,available:true},
+            {id:"item-chicken",categoryId:"cat-small-plates",name:"Chicken malai kebab",description:"Creamy marinade, charred lemon",price:349,dietaryType:"NON_VEG",prepTimeMinutes:20,available:false}
+          ]},
+          {id:"cat-mains",name:"From the kitchen",description:"Comfort food, made fresh",sortOrder:1,active:true,items:[
+            {id:"item-biryani",categoryId:"cat-mains",name:"Hyderabadi chicken biryani",description:"Long-grain basmati, slow cooked dum style",price:379,dietaryType:"NON_VEG",prepTimeMinutes:25,available:true},
+            {id:"item-dal",categoryId:"cat-mains",name:"Dal makhani",description:"Black lentils, slow simmered overnight",price:269,dietaryType:"VEG",prepTimeMinutes:15,available:true}
+          ]},
+          {id:"cat-drinks",name:"Drinks",description:"Something to sip",sortOrder:2,active:true,items:[
+            {id:"item-nimbu",categoryId:"cat-drinks",name:"Fresh masala nimbu soda",description:"Fresh lime, roasted cumin, sparkling soda",price:119,dietaryType:"VEG",prepTimeMinutes:5,available:true}
+          ]}
+        ]);
+        setLoading(false);
+        return;
+      }
+      router.replace("/login");return;
+    }
     try{
       const user=JSON.parse(rawUser);
       const available:Membership[]=user.memberships??[];
@@ -128,8 +156,9 @@ export default function MenuPage() {
     <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-8">
         <div><div className="eyebrow">Workspace / Catalogue</div><h1 className="mt-2 text-3xl sm:text-4xl font-bold tracking-[-.055em]">Your menu<span className="text-[#E56A42]">.</span></h1><p className="mt-3 text-sm text-[#77796f]">Build your catalogue and control what guests can order at each branch.</p></div>
-        <div className="flex flex-wrap gap-2"><button onClick={()=>{setCategoryForm(v=>!v);setItemForm(false);}} className="ghost-button inline-flex items-center gap-2"><Plus size={14}/> Add category</button><button onClick={()=>{setItemForm(v=>!v);setCategoryForm(false);}} className="primary-button inline-flex items-center gap-2"><CirclePlus size={15}/> Add menu item</button></div>
+        {!demoMode&&<div className="flex flex-wrap gap-2"><button onClick={()=>{setCategoryForm(v=>!v);setItemForm(false);}} className="ghost-button inline-flex items-center gap-2"><Plus size={14}/> Add category</button><button onClick={()=>{setItemForm(v=>!v);setCategoryForm(false);}} className="primary-button inline-flex items-center gap-2"><CirclePlus size={15}/> Add menu item</button></div>}
       </div>
+      {demoMode&&<div className="mb-5 rounded-xl border border-[#ead8bd] bg-[#fbf2df] px-4 py-3 text-xs text-[#87652d]">Demo preview · Sample menu data only. Sign-in and live menu updates are not connected in this preview.</div>}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
           {memberships.length>1&&<select value={tenantId} onChange={e=>{setTenantId(e.target.value);setBranchId("");}} className="ghost-button bg-[#fffefa]">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}
@@ -150,8 +179,8 @@ export default function MenuPage() {
         <label className="block"><span className="text-xs font-semibold text-[#55584f]">Dietary type</span><select value={newItem.dietaryType} onChange={e=>setNewItem(p=>({...p,dietaryType:e.target.value}))} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm"><option value="VEG">Vegetarian</option><option value="NON_VEG">Non-vegetarian</option><option value="EGG">Contains egg</option></select></label>
         <Field label="Prep time (minutes)" value={newItem.prepTimeMinutes} onChange={v=>setNewItem(p=>({...p,prepTimeMinutes:v}))} placeholder="15" type="number" required min="1" max="240"/>
       </div><div className="mt-5 flex justify-end"><button disabled={saving||!categories.some(c=>c.active)} className="primary-button disabled:opacity-50">{saving?"Adding…":"Add to menu"}</button></div></form>}
-      {loading?<div className="panel py-16 text-center text-sm text-[#99998f]">Loading your menu…</div>:filteredCategories.length===0?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f5eee5] text-[#d56a45]"><Utensils size={22}/></div><h2 className="mt-4 font-bold">{search?"No matching dishes":"Your menu is ready for its first dish"}</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#99998f]">{search?"Try another search term.":"Start by creating categories like Starters or Main course, then add dishes with prices and preparation times."}</p>{!search&&<button onClick={()=>{setCategoryForm(true);setItemForm(false);}} className="primary-button mt-5">Create first category</button>}</div>:<div className="space-y-5">{filteredCategories.map(category=><section key={category.id} className="panel overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-[#eeeae2] px-5 py-4 sm:px-6"><div><div className="font-bold">{category.name}</div><div className="mt-1 text-xs text-[#99998f]">{category.description||`${category.items.length} items in this category`}</div></div><span className="rounded-full bg-[#f5eee5] px-3 py-1 text-[10px] font-bold text-[#9a684d]">{category.items.length} items</span></div>{category.items.length===0?<p className="px-6 py-7 text-xs text-[#99998f]">No items in this category yet.</p>:<div className="divide-y divide-[#f0ede6]">{category.items.map(item=><div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6"><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.dietaryType==="VEG"?"bg-[#eaf2e9] text-[#527a5b]":item.dietaryType==="EGG"?"bg-[#fbf2dc] text-[#a77a2d]":"bg-[#fbede7] text-[#c65e3d]"}`}><Utensils size={17}/></div><div className="min-w-[150px] flex-1"><div className="text-sm font-bold">{item.name}</div><div className="mt-1 text-[11px] text-[#85867d]">{item.description||item.dietaryType.replace("_"," ")} · <Clock3 size={11} className="inline"/> {item.prepTimeMinutes} min</div></div><div className="mr-2 text-sm font-bold tabular-nums">₹{Number(item.price).toFixed(2)}</div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.available?"bg-[#eaf2e9] text-[#527a5b]":"bg-[#efeee9] text-[#77796f]"}`}>{item.available?"Available":"Unavailable"}</span><button onClick={()=>toggleAvailability(item)} className="ghost-button !px-3 !py-2">{item.available?"Mark sold out":"Make available"}</button></div>)}</div>}</section>)}</div>}
-      <p className="mt-7 text-center text-[10px] text-[#aaa99f]">Menu prices and availability are branch-specific. Changes apply to the selected branch.</p>
+      {loading?<div className="panel py-16 text-center text-sm text-[#99998f]">Loading your menu…</div>:filteredCategories.length===0?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f5eee5] text-[#d56a45]"><Utensils size={22}/></div><h2 className="mt-4 font-bold">{search?"No matching dishes":"Your menu is ready for its first dish"}</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#99998f]">{search?"Try another search term.":"Start by creating categories like Starters or Main course, then add dishes with prices and preparation times."}</p>{!search&&<button onClick={()=>{setCategoryForm(true);setItemForm(false);}} className="primary-button mt-5">Create first category</button>}</div>:<div className="space-y-5">{filteredCategories.map(category=><section key={category.id} className="panel overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-[#eeeae2] px-5 py-4 sm:px-6"><div><div className="font-bold">{category.name}</div><div className="mt-1 text-xs text-[#99998f]">{category.description||`${category.items.length} items in this category`}</div></div><span className="rounded-full bg-[#f5eee5] px-3 py-1 text-[10px] font-bold text-[#9a684d]">{category.items.length} items</span></div>{category.items.length===0?<p className="px-6 py-7 text-xs text-[#99998f]">No items in this category yet.</p>:<div className="divide-y divide-[#f0ede6]">{category.items.map(item=><div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6"><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.dietaryType==="VEG"?"bg-[#eaf2e9] text-[#527a5b]":item.dietaryType==="EGG"?"bg-[#fbf2dc] text-[#a77a2d]":"bg-[#fbede7] text-[#c65e3d]"}`}><Utensils size={17}/></div><div className="min-w-[150px] flex-1"><div className="text-sm font-bold">{item.name}</div><div className="mt-1 text-[11px] text-[#85867d]">{item.description||item.dietaryType.replace("_"," ")} · <Clock3 size={11} className="inline"/> {item.prepTimeMinutes} min</div></div><div className="mr-2 text-sm font-bold tabular-nums">₹{Number(item.price).toFixed(2)}</div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.available?"bg-[#eaf2e9] text-[#527a5b]":"bg-[#efeee9] text-[#77796f]"}`}>{item.available?"Available":"Unavailable"}</span>{!demoMode&&<button onClick={()=>toggleAvailability(item)} className="ghost-button !px-3 !py-2">{item.available?"Mark sold out":"Make available"}</button>}</div>)}</div>}</section>)}</div>}
+      <p className="mt-7 text-center text-[10px] text-[#aaa99f]">{demoMode?"RestaurantOS menu workspace preview · Sample data only":"Menu prices and availability are branch-specific. Changes apply to the selected branch."}</p>
     </div>
   </main>;
 }
