@@ -46,8 +46,11 @@ export default function LoginPage() {
         authorities: payload.data.authorities,
         memberships: payload.data.memberships ?? [],
       }));
-      const canManageTeam = (payload.data.memberships ?? []).some((membership: { roles?: string }) => /Owner|Manager/i.test(membership.roles ?? ""));
-      router.push(payload.data.authorities.includes("PLATFORM_ADMIN") ? "/admin/restaurants/new" : canManageTeam ? "/staff" : "/");
+      const roles=(payload.data.memberships??[]).map((m:{roles?:string})=>m.roles??"").join(" ");
+      const next=new URLSearchParams(window.location.search).get("next");
+      const destination=payload.data.authorities.includes("PLATFORM_ADMIN")?"/admin/":/OWNER/i.test(roles)?"/owner/":(payload.data.memberships??[]).length?"/staff/":"/login";
+      const safeNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")&&((destination==="/admin/"&&next.startsWith("/admin/"))||(destination==="/owner/"&&next.startsWith("/owner/"))||(destination==="/staff/"&&next.startsWith("/staff/")))?next:destination;
+      router.replace(safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
