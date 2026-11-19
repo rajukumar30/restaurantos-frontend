@@ -1,4 +1,5 @@
-import { ArrowUpRight, Bell, ChevronDown, CircleDollarSign, ClipboardList, Clock3, Coffee, LayoutDashboard, MoreHorizontal, QrCode, Search, Settings2, ShoppingBag, Store, Users, Utensils } from "lucide-react";
+import type { ElementType } from "react";
+import { ArrowUpRight, Bell, CircleDollarSign, ClipboardList, Clock3, Coffee, LayoutDashboard, MoreHorizontal, QrCode, Search, Settings2, ShoppingBag, Store, Users, Utensils } from "lucide-react";
 
 const metrics = [
   { label: "Gross revenue", value: "₹48,290", change: "+12.8% vs last week", icon: CircleDollarSign },
@@ -20,7 +21,7 @@ const popular = [
   { name: "Masala Dosa", category: "South Indian · Veg", sold: "51 sold", amount: "₹7,650", emoji: "🥞" },
 ];
 
-function NavItem({ icon: Icon, label, active = false }: { icon: React.ElementType; label: string; active?: boolean }) {
+function NavItem({ icon: Icon, label, active = false }: { icon: ElementType; label: string; active?: boolean }) {
   return <div className={"nav-link " + (active ? "active" : "")} aria-current={active ? "page" : undefined}><Icon className="nav-icon" strokeWidth={1.8}/><span className="nav-text">{label}</span></div>;
 }
 
