@@ -14,6 +14,6 @@ export function membershipRoles(memberships:unknown):string[]{
  if(!Array.isArray(memberships))return [];
  return memberships.flatMap(m=>{
   const roles=m?.roles;
-  return Array.isArray(roles)?roles.map(String):typeof roles==="string"?roles.split(/[,;\\s]+/):[];
+  return Array.isArray(roles)?roles.map(String):typeof roles==="string"?roles.split(/[,;\s]+/):[];
  });
 }
