@@ -48,17 +48,18 @@ export default function StaffPage() {
       setError("");
       try {
         const headers = { Authorization: `Bearer ${token}` };
-        const [branchResponse, staffResponse] = await Promise.all([
-          fetch(`${API}/api/v1/tenants/${tenantId}/branches`, { headers }),
-          fetch(`${API}/api/v1/tenants/${tenantId}/staff`, { headers }),
-        ]);
-        const [branchPayload, staffPayload] = await Promise.all([branchResponse.json(), staffResponse.json()]);
+        const branchResponse = await fetch(`${API}/api/v1/tenants/${tenantId}/branches`, { headers });
+        const branchPayload = await branchResponse.json();
         if (!branchResponse.ok || !branchPayload.success) throw new Error(branchPayload.message ?? "Unable to load branches.");
+        const firstBranchId = branchPayload.data[0]?.id ?? "";
+        const staffUrl = firstBranchId ? `${API}/api/v1/tenants/${tenantId}/staff?branchId=${firstBranchId}` : `${API}/api/v1/tenants/${tenantId}/staff`;
+        const staffResponse = await fetch(staffUrl, { headers });
+        const staffPayload = await staffResponse.json();
         if (!staffResponse.ok || !staffPayload.success) throw new Error(staffPayload.message ?? "Unable to load staff.");
         if (!cancelled) {
           setBranches(branchPayload.data);
           setStaff(staffPayload.data);
-          setBranchId(current => current && branchPayload.data.some((b: Branch) => b.id === current) ? current : branchPayload.data[0]?.id ?? "");
+          setBranchId(current => current && branchPayload.data.some((b: Branch) => b.id === current) ? current : firstBranchId);
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Unable to load workspace.");
@@ -87,7 +88,7 @@ export default function StaffPage() {
       if (!response.ok || !payload.success) throw new Error(payload.message ?? "Could not create staff account.");
       setForm({ name:"", email:"", phone:"", temporaryPassword:"", roleKey:"WAITER" });
       setShowForm(false);
-      const refreshed = await fetch(`${API}/api/v1/tenants/${tenantId}/staff`, { headers:{ Authorization:`Bearer ${token}` } });
+      const refreshed = await fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${branchId}`, { headers:{ Authorization:`Bearer ${token}` } });
       const refreshedPayload = await refreshed.json();
       if (refreshed.ok && refreshedPayload.success) setStaff(refreshedPayload.data);
     } catch (err) { setError(err instanceof Error ? err.message : "Could not create staff account."); }
