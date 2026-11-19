@@ -40,24 +40,40 @@ export default function StaffPage() {
   useEffect(() => {
     if(!token || !tenantId)return;
     let cancelled=false;
-    async function load(){
-      setLoading(true);setError("");
+    async function loadBranches(){
+      setLoading(true);setError("");setStaff([]);setBranches([]);setBranchId("");
       try{
-        const headers={Authorization:`Bearer ${token}`};
-        const branchResponse=await fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers});
-        const branchPayload=await branchResponse.json();
-        if(!branchResponse.ok || !branchPayload.success)throw new Error(branchPayload.message??"Unable to load branches.");
-        const firstId=branchPayload.data[0]?.id??"";
-        const staffUrl=`${API}/api/v1/tenants/${tenantId}/staff${firstId?`?branchId=${firstId}`:""}`;
-        const staffResponse=await fetch(staffUrl,{headers});
-        const staffPayload=await staffResponse.json();
-        if(!staffResponse.ok || !staffPayload.success)throw new Error(staffPayload.message??"Unable to load staff.");
-        if(!cancelled){setBranches(branchPayload.data);setStaff(staffPayload.data);setBranchId(current=>current&&branchPayload.data.some((b:Branch)=>b.id===current)?current:firstId);}
+        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`}});
+        const payload=await response.json();
+        if(!response.ok || !payload.success)throw new Error(payload.message??"Unable to load branches.");
+        if(!cancelled){
+          const available:Branch[]=payload.data??[];
+          setBranches(available);
+          setBranchId(available[0]?.id??"");
+        }
       }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load your workspace.");}
       finally{if(!cancelled)setLoading(false);}
     }
-    load();return()=>{cancelled=true;};
+    loadBranches();return()=>{cancelled=true;};
   },[token,tenantId]);
+
+  useEffect(() => {
+    if(!token || !tenantId || !branchId)return;
+    let cancelled=false;
+    async function loadStaff(){
+      setLoading(true);setError("");
+      try{
+        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${encodeURIComponent(branchId)}`,{
+          headers:{Authorization:`Bearer ${token}`}
+        });
+        const payload=await response.json();
+        if(!response.ok || !payload.success)throw new Error(payload.message??"Unable to load staff.");
+        if(!cancelled)setStaff(payload.data??[]);
+      }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load staff.");}
+      finally{if(!cancelled)setLoading(false);}
+    }
+    loadStaff();return()=>{cancelled=true;};
+  },[token,tenantId,branchId]);
 
   const filtered=useMemo(()=>staff.filter(person=>[person.name,person.email,person.roles,person.branches].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[staff,search]);
 
@@ -83,7 +99,10 @@ export default function StaffPage() {
     <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between mb-8"><div><div className="eyebrow">Workspace / People</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Your team<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Manage restaurant staff and their access to daily operations.</p></div><button onClick={()=>setShowForm(v=>!v)} className="primary-button inline-flex items-center justify-center gap-2"><Plus size={15}/>{showForm?"Close form":"Add team member"}</button></div>
       <section className="grid gap-3 sm:grid-cols-3 mb-6"><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Team members</span><Users size={17}/></div><div className="text-3xl font-bold mt-3">{staff.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Active branches</span><Building2 size={17}/></div><div className="text-3xl font-bold mt-3">{branches.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Your access</span><ShieldCheck size={17}/></div><div className="text-lg font-bold mt-4">{current?.roles||"Team member"}</div></div></section>
-      {memberships.length>1&&<label className="block mb-5 max-w-sm"><span className="text-xs font-semibold">Restaurant workspace</span><select value={tenantId} onChange={e=>setTenantId(e.target.value)} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label>}
+      <div className="mb-5 grid max-w-2xl gap-4 sm:grid-cols-2">
+        {memberships.length>1&&<label className="block"><span className="text-xs font-semibold">Restaurant workspace</span><select value={tenantId} onChange={e=>setTenantId(e.target.value)} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label>}
+        <label className="block"><span className="text-xs font-semibold">Selected branch</span><select value={branchId} onChange={e=>setBranchId(e.target.value)} disabled={!branches.length} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm disabled:opacity-60">{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+      </div>
       {showForm&&<form onSubmit={invite} className="panel p-5 sm:p-7 mb-6"><div className="mb-5"><h2 className="font-bold">Create staff account</h2><p className="text-xs text-[#99998f] mt-1">Give a team member branch access and a role.</p></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Full name" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="Full name" required/>
         <Field label="Email address" value={form.email} onChange={v=>setForm(p=>({...p,email:v}))} placeholder="staff@example.com" type="email" required/>
