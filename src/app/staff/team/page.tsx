@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Building2, LogOut, Pencil, Plus, Search, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 type Membership = { tenantId: string; tenantName: string; roles: string };
@@ -11,6 +11,7 @@ type Branch = { id: string; name: string; branchCode: string; address: string; p
 type Staff = { userId: string; name: string; email: string; phone?: string; accountStatus: string; roles?: string; branches?: string };
 
 export default function StaffPage() {
+ const ownerRoute=usePathname().startsWith("/owner");
   const router = useRouter();
   const [token,setToken] = useState("");
   const [memberships,setMemberships] = useState<Membership[]>([]);
@@ -108,7 +109,7 @@ export default function StaffPage() {
   function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
   const current=memberships.find(m=>m.tenantId===tenantId);
   return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Restaurant workspace</div></div></div><div className="flex items-center gap-2"><Link href="/" className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button flex items-center gap-2"><LogOut size={14}/> Sign out</button></div></header>
+    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Restaurant workspace</div></div></div><div className="flex items-center gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button flex items-center gap-2"><LogOut size={14}/> Sign out</button></div></header>
     <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between mb-8"><div><div className="eyebrow">Workspace / People</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Your team<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Manage restaurant staff and their access to daily operations.</p></div><button onClick={()=>setShowForm(v=>!v)} className="primary-button inline-flex items-center justify-center gap-2"><Plus size={15}/>{showForm?"Close form":"Add team member"}</button></div>
       <section className="grid gap-3 sm:grid-cols-3 mb-6"><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Team members</span><Users size={17}/></div><div className="text-3xl font-bold mt-3">{staff.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Active branches</span><Building2 size={17}/></div><div className="text-3xl font-bold mt-3">{branches.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Your access</span><ShieldCheck size={17}/></div><div className="text-lg font-bold mt-4">{current?.roles||"Team member"}</div></div></section>
