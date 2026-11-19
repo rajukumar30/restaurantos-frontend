@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function GuestHome(){return <main className="min-h-screen grid place-items-center bg-[#f7f4ec] p-6"><div className="max-w-md rounded-2xl bg-white p-8 text-center shadow-sm"><h1 className="text-2xl font-bold">Welcome to RestaurantOS</h1><p className="mt-3 text-sm text-[#77796f]">Scan your restaurant table QR code to open its menu and place an order.</p><Link className="mt-5 inline-block text-sm font-semibold text-[#e56a42]" href="/login">Restaurant team sign in</Link></div></main>}
