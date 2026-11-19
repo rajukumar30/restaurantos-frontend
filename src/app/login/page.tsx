@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, LockKeyhole, Mail, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import {membershipRoles,staffRole,roleHome} from "../staff/role-routes";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 
@@ -46,11 +47,20 @@ export default function LoginPage() {
         authorities: payload.data.authorities,
         memberships: payload.data.memberships ?? [],
       }));
-      const roles=JSON.stringify(payload.data.memberships??[]).toUpperCase();
+      const roles=membershipRoles(payload.data.memberships??[]);
+      const roleKeys=roles.map(r=>r.toUpperCase());
       const next=new URLSearchParams(window.location.search).get("next");
-      const kitchenOnly=roles.includes("KITCHEN")&&!roles.includes("MANAGER")&&!roles.includes("OWNER");
-      const destination=(payload.data.authorities??[]).includes("PLATFORM_ADMIN")?"/admin/":roles.includes("OWNER")?"/owner/":(payload.data.memberships??[]).length?(kitchenOnly?"/staff/kitchen":"/staff/"):"/login";
-      const safeNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")&&((destination==="/admin/"&&next.startsWith("/admin/"))||(destination==="/owner/"&&next.startsWith("/owner/"))||((destination==="/staff/"||destination==="/staff/kitchen")&&next.startsWith("/staff/")&&(!kitchenOnly||next==="/staff/kitchen")))?next:destination;
+      const destination=(payload.data.authorities??[]).includes("PLATFORM_ADMIN")?"/admin/":roleKeys.includes("OWNER")?"/owner/":(payload.data.memberships??[]).length?roleHome(staffRole(roles)):"/login";
+      const staffDestination=destination.startsWith("/staff/");
+      const allowedNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\\\")&&(
+       (destination==="/admin/"&&next.startsWith("/admin/"))||
+       (destination==="/owner/"&&next.startsWith("/owner/"))||
+       (staffDestination&&(next===destination||next==="/staff/"||next==="/staff/dashboard"||
+         (staffRole(roles)==="MANAGER"&&["/staff/kitchen","/staff/tables","/staff/billing"].includes(next))||
+         (staffRole(roles)==="WAITER"&&next==="/staff/tables")||
+         (staffRole(roles)==="CASHIER"&&next==="/staff/billing")))
+      );
+      const safeNext=allowedNext?next:destination;
       router.replace(safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
