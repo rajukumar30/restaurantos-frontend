@@ -46,9 +46,9 @@ export default function LoginPage() {
         authorities: payload.data.authorities,
         memberships: payload.data.memberships ?? [],
       }));
-      const roles=(payload.data.memberships??[]).map((m:{roles?:string})=>m.roles??"").join(" ");
+      const roles=JSON.stringify(payload.data.memberships??[]).toUpperCase();
       const next=new URLSearchParams(window.location.search).get("next");
-      const destination=payload.data.authorities.includes("PLATFORM_ADMIN")?"/admin/":/OWNER/i.test(roles)?"/owner/":(payload.data.memberships??[]).length?"/staff/":"/login";
+      const destination=(payload.data.authorities??[]).includes("PLATFORM_ADMIN")?"/admin/":roles.includes("OWNER")?"/owner/":(payload.data.memberships??[]).length?"/staff/":"/login";
       const safeNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")&&((destination==="/admin/"&&next.startsWith("/admin/"))||(destination==="/owner/"&&next.startsWith("/owner/"))||(destination==="/staff/"&&next.startsWith("/staff/")))?next:destination;
       router.replace(safeNext);
     } catch (err) {
