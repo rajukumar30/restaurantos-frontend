@@ -48,8 +48,9 @@ export default function LoginPage() {
       }));
       const roles=JSON.stringify(payload.data.memberships??[]).toUpperCase();
       const next=new URLSearchParams(window.location.search).get("next");
-      const destination=(payload.data.authorities??[]).includes("PLATFORM_ADMIN")?"/admin/":roles.includes("OWNER")?"/owner/":(payload.data.memberships??[]).length?"/staff/":"/login";
-      const safeNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")&&((destination==="/admin/"&&next.startsWith("/admin/"))||(destination==="/owner/"&&next.startsWith("/owner/"))||(destination==="/staff/"&&next.startsWith("/staff/")))?next:destination;
+      const kitchenOnly=roles.includes("KITCHEN")&&!roles.includes("MANAGER")&&!roles.includes("OWNER");
+      const destination=(payload.data.authorities??[]).includes("PLATFORM_ADMIN")?"/admin/":roles.includes("OWNER")?"/owner/":(payload.data.memberships??[]).length?(kitchenOnly?"/staff/kitchen":"/staff/"):"/login";
+      const safeNext=next&&next.startsWith("/")&&!next.startsWith("//")&&!next.includes("\\")&&((destination==="/admin/"&&next.startsWith("/admin/"))||(destination==="/owner/"&&next.startsWith("/owner/"))||((destination==="/staff/"||destination==="/staff/kitchen")&&next.startsWith("/staff/")&&(!kitchenOnly||next==="/staff/kitchen")))?next:destination;
       router.replace(safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
