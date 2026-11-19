@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Activity, ArrowRight, Bell, CalendarDays, ChefHat, ChevronDown, ClipboardList, Clock3, LayoutDashboard, LogOut, Menu as MenuIcon, Package, RefreshCw, Settings2, ShieldCheck, Smartphone, Sparkles, TrendingUp, Users, UtensilsCrossed, Wallet, X } from "lucide-react";
+import { Activity, ArrowRight, Bell, CalendarDays, ChefHat, ChevronDown, ClipboardList, Clock3, LayoutDashboard, LogOut, Menu as MenuIcon, Package, RefreshCw, Settings2, Smartphone, Sparkles, TrendingUp, Users, UtensilsCrossed, Wallet, X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 type Membership = {tenantId:string;tenantName:string};
@@ -54,7 +54,9 @@ export default function Home(){
   try{
    const user=JSON.parse(raw);
    const list:Membership[]=user.memberships??[];
-   if(!list.length){router.replace(user.authorities?.includes("PLATFORM_ADMIN")?"/admin/restaurants/new":"/login");return;}
+   const owner=JSON.stringify(list).toUpperCase().includes("OWNER");
+   if(!owner&&!user.authorities?.includes("PLATFORM_ADMIN")){router.replace("/staff/");return;}
+   if(!list.length){router.replace("/admin/");return;}
    setToken(t);setMemberships(list);setTenantId(list[0].tenantId);
   }catch{router.replace("/login");}
  },[router]);
@@ -117,8 +119,6 @@ export default function Home(){
    <nav className="flex-1 px-3" aria-label="Main navigation">
     <p className="px-4 pb-3 text-[10px] font-bold uppercase tracking-[.17em] text-[#879b8e]">Workspace</p>
     {links.map(({href,label,icon:Icon})=><Link key={href} href={href} onClick={()=>setMenuOpen(false)} aria-current={href==="/owner/"?"page":undefined} className={`mb-1 flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] font-semibold transition-colors ${href==="/"?"bg-[#e7764c] text-white":"text-[#b9c7bb] hover:bg-white/10 hover:text-white"}`}><Icon size={18}/>{label}{href==="/"&&<span className="ml-auto h-1.5 w-1.5 rounded-full bg-white"/>}</Link>)}
-    <p className="px-4 pb-3 pt-8 text-[10px] font-bold uppercase tracking-[.17em] text-[#879b8e]">Management</p>
-    <Link href="/admin/restaurants/new" className="flex items-center gap-3 rounded-xl px-4 py-3 text-[13px] text-[#b9c7bb] hover:bg-white/10 hover:text-white"><ShieldCheck size={18}/>Platform admin</Link>
    </nav>
    <div className="m-4 rounded-2xl bg-[#29392f] p-4"><div className="flex items-center gap-2 text-xs font-bold text-[#e4f0e6]"><Sparkles size={15} className="text-[#efad7e]"/>RestaurantOS V2</div><p className="mt-2 text-xs leading-5 text-[#b3c5b7]">A clearer view of your restaurant, every day.</p></div>
    <button onClick={logout} className="mx-4 mb-5 flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-[#d7dfd8] hover:bg-white/10"><LogOut size={17}/>Sign out</button>
