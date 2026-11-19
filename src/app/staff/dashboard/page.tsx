@@ -1,8 +1,7 @@
 "use client";
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
-import Link from "next/link";
-import {ChefHat,RefreshCw,LogOut,Clock3,ShieldCheck,Wallet,Users,UtensilsCrossed,BarChart3} from "lucide-react";
+import {ChefHat,RefreshCw,Clock3,ShieldCheck,Wallet,Users,UtensilsCrossed,BarChart3} from "lucide-react";
 
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
 type Membership={tenantId:string;tenantName:string;roles?:string};
@@ -44,11 +43,10 @@ export default function StaffDashboard(){
  STAFF:{title:"Staff dashboard",subtitle:"View the orders assigned to your restaurant branch",icon:Users,queue:"Live orders",metrics:[["Active orders",active.length],["New orders",orders.filter(o=>o.status==="NEW").length],["Preparing",orders.filter(o=>o.status==="PREPARING").length],["Ready",orders.filter(o=>o.status==="READY").length]]}
  }[role];
  const RoleIcon=config.icon;
- function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
+
  return <main className="min-h-screen bg-[#f7f7f4] text-[#20241f]">
-  <header className="border-b border-[#e7e9e2] bg-[#1b241f] px-5 py-5 text-white sm:px-9"><div className="mx-auto flex max-w-7xl items-center justify-between gap-3"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e7764c] text-xl font-black">r.</span><div><div className="font-bold">restaurant<span className="text-[#f18c66]">os</span></div><div className="text-xs text-[#aebdb2]">Staff workspace</div></div></div><button onClick={logout} className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-xs"><LogOut size={15}/>Sign out</button></div></header>
+  
   <div className="mx-auto max-w-7xl px-5 py-8 sm:px-9"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#d36a45]">RestaurantOS / Staff</p><h1 className="mt-2 flex items-center gap-3 text-3xl font-extrabold"><RoleIcon size={27}/>{config.title}</h1><p className="mt-2 text-sm text-[#788078]">{config.subtitle} · Refreshes every 10 seconds</p></div><button onClick={()=>void load()} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm"><RefreshCw size={16}/>Refresh</button></div>
-  <div className="mb-5 flex flex-wrap gap-3">{(role==="WAITER"||role==="MANAGER")&&manage&&<Link href="/staff/tables" className="rounded-xl bg-[#1b241f] px-4 py-3 text-sm font-semibold text-white">Open table service</Link>}{(role==="CASHIER"||role==="MANAGER")&&access.permissions.includes("payments:read")&&<Link href="/staff/billing" className="rounded-xl bg-[#1b241f] px-4 py-3 text-sm font-semibold text-white">Open billing & payments</Link>}</div>
   <div className="mb-6 flex flex-wrap gap-3 rounded-2xl border bg-white p-4"><label className="text-sm">Restaurant <select className="ml-2 rounded-lg border p-2" value={tenantId} onChange={e=>setTenantId(e.target.value)}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label><label className="text-sm">Branch <select className="ml-2 rounded-lg border p-2" value={branchId} onChange={e=>setBranchId(e.target.value)}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label></div>
   <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">{config.metrics.map(([label,count])=><div key={label} className="rounded-2xl border bg-white p-5"><p className="text-xs text-[#788078]">{label}</p><p className="mt-2 text-3xl font-bold">{count}</p></div>)}</div>
   {error&&<p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
