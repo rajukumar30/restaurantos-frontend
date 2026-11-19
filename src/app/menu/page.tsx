@@ -1,17 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CirclePlus, Clock3, LogOut, Plus, Search, Utensils, X } from "lucide-react";
+import { ArrowLeft, CirclePlus, Clock3, ImagePlus, LogOut, Plus, Search, Utensils, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 type Membership = { tenantId: string; tenantName: string; roles: string };
 type Branch = { id: string; name: string; branchCode: string };
-type MenuItem = { id: string; categoryId: string; name: string; description?: string; price: number; dietaryType: "VEG"|"NON_VEG"|"EGG"; prepTimeMinutes: number; available: boolean };
+type MenuItem = { id: string; categoryId: string; name: string; description?: string; price: number; dietaryType: "VEG"|"NON_VEG"|"EGG"; prepTimeMinutes: number; available: boolean; imageUrl?: string };
 type Category = { id: string; name: string; description?: string; sortOrder: number; active: boolean; items: MenuItem[] };
 
-const emptyItem = { categoryId:"", name:"", description:"", price:"", dietaryType:"VEG", prepTimeMinutes:"15" };
+const emptyItem = { categoryId:"", name:"", description:"", price:"", dietaryType:"VEG", prepTimeMinutes:"15", imageUrl:"" };
 
 export default function MenuPage() {
   const router=useRouter();
@@ -31,6 +31,7 @@ export default function MenuPage() {
   const [itemForm,setItemForm]=useState(false);
   const [newCategory,setNewCategory]=useState({name:"",description:""});
   const [newItem,setNewItem]=useState(emptyItem);
+  const [uploading,setUploading]=useState(false);
 
   useEffect(()=>{
     const accessToken=localStorage.getItem("restaurantos_access_token")??"";
@@ -125,6 +126,19 @@ export default function MenuPage() {
     finally{setSaving(false);}
   }
 
+  async function uploadMenuImage(file:File){
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)){setError("Use JPG, PNG or WebP images only.");return;}
+    if(file.size>5*1024*1024){setError("Image must be smaller than 5 MB.");return;}
+    if(!token||!tenantId||!branchId){setError("Select a restaurant branch first.");return;}
+    setUploading(true);setError("");
+    try{
+      const body=new FormData();body.append("file",file);body.append("branchId",branchId);
+      const response=await fetch(`${API}/api/v1/tenants/${tenantId}/menu/images`,{method:"POST",headers:{Authorization:`Bearer ${token}`},body});
+      const payload=await response.json();
+      if(!response.ok||!payload.success||typeof payload.data?.imageUrl!=="string")throw new Error(payload.message??"Image upload endpoint is not available yet.");
+      setNewItem(p=>({...p,imageUrl:payload.data.imageUrl}));setNotice("Image uploaded. Save the menu item to finish.");
+    }catch(e){setError(e instanceof Error?e.message:"Unable to upload image.");}finally{setUploading(false);}
+  }
   async function addItem(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setSaving(true);setError("");setNotice("");
     try{
@@ -178,8 +192,8 @@ export default function MenuPage() {
         <label className="block"><span className="text-xs font-semibold text-[#55584f]">Category *</span><select required value={newItem.categoryId} onChange={e=>setNewItem(p=>({...p,categoryId:e.target.value}))} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm"><option value="">Choose category</option>{categories.filter(c=>c.active).map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label className="block"><span className="text-xs font-semibold text-[#55584f]">Dietary type</span><select value={newItem.dietaryType} onChange={e=>setNewItem(p=>({...p,dietaryType:e.target.value}))} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm"><option value="VEG">Vegetarian</option><option value="NON_VEG">Non-vegetarian</option><option value="EGG">Contains egg</option></select></label>
         <Field label="Prep time (minutes)" value={newItem.prepTimeMinutes} onChange={v=>setNewItem(p=>({...p,prepTimeMinutes:v}))} placeholder="15" type="number" required min="1" max="240"/>
-      </div><div className="mt-5 flex justify-end"><button disabled={saving||!categories.some(c=>c.active)} className="primary-button disabled:opacity-50">{saving?"Adding…":"Add to menu"}</button></div></form>}
-      {loading?<div className="panel py-16 text-center text-sm text-[#99998f]">Loading your menu…</div>:filteredCategories.length===0?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f5eee5] text-[#d56a45]"><Utensils size={22}/></div><h2 className="mt-4 font-bold">{search?"No matching dishes":"Your menu is ready for its first dish"}</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#99998f]">{search?"Try another search term.":"Start by creating categories like Starters or Main course, then add dishes with prices and preparation times."}</p>{!search&&<button onClick={()=>{setCategoryForm(true);setItemForm(false);}} className="primary-button mt-5">Create first category</button>}</div>:<div className="space-y-5">{filteredCategories.map(category=><section key={category.id} className="panel overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-[#eeeae2] px-5 py-4 sm:px-6"><div><div className="font-bold">{category.name}</div><div className="mt-1 text-xs text-[#99998f]">{category.description||`${category.items.length} items in this category`}</div></div><span className="rounded-full bg-[#f5eee5] px-3 py-1 text-[10px] font-bold text-[#9a684d]">{category.items.length} items</span></div>{category.items.length===0?<p className="px-6 py-7 text-xs text-[#99998f]">No items in this category yet.</p>:<div className="divide-y divide-[#f0ede6]">{category.items.map(item=><div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6"><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${item.dietaryType==="VEG"?"bg-[#eaf2e9] text-[#527a5b]":item.dietaryType==="EGG"?"bg-[#fbf2dc] text-[#a77a2d]":"bg-[#fbede7] text-[#c65e3d]"}`}><Utensils size={17}/></div><div className="min-w-[150px] flex-1"><div className="text-sm font-bold">{item.name}</div><div className="mt-1 text-[11px] text-[#85867d]">{item.description||item.dietaryType.replace("_"," ")} · <Clock3 size={11} className="inline"/> {item.prepTimeMinutes} min</div></div><div className="mr-2 text-sm font-bold tabular-nums">₹{Number(item.price).toFixed(2)}</div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.available?"bg-[#eaf2e9] text-[#527a5b]":"bg-[#efeee9] text-[#77796f]"}`}>{item.available?"Available":"Unavailable"}</span>{!demoMode&&<button onClick={()=>toggleAvailability(item)} className="ghost-button !px-3 !py-2">{item.available?"Mark sold out":"Make available"}</button>}</div>)}</div>}</section>)}</div>}
+      </div><div className="mt-4 rounded-xl border border-dashed border-[#e4dfd4] p-4"><label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold"><ImagePlus size={18}/> {uploading?"Uploading image…":"Upload dish image (JPG, PNG, WebP · max 5 MB)"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={uploading} onChange={e=>{const file=e.target.files?.[0];if(file)void uploadMenuImage(file);e.target.value="";}}/></label>{newItem.imageUrl&&<div className="mt-3 flex items-center gap-3"><img src={newItem.imageUrl} alt="Dish preview" className="h-20 w-20 rounded-lg object-cover"/><button type="button" className="ghost-button" onClick={()=>setNewItem(p=>({...p,imageUrl:""}))}>Remove image</button></div>}</div><div className="mt-5 flex justify-end"><button disabled={saving||uploading||!categories.some(c=>c.active)} className="primary-button disabled:opacity-50">{saving?"Adding…":"Add to menu"}</button></div></form>}
+      {loading?<div className="panel py-16 text-center text-sm text-[#99998f]">Loading your menu…</div>:filteredCategories.length===0?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f5eee5] text-[#d56a45]"><Utensils size={22}/></div><h2 className="mt-4 font-bold">{search?"No matching dishes":"Your menu is ready for its first dish"}</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#99998f]">{search?"Try another search term.":"Start by creating categories like Starters or Main course, then add dishes with prices and preparation times."}</p>{!search&&<button onClick={()=>{setCategoryForm(true);setItemForm(false);}} className="primary-button mt-5">Create first category</button>}</div>:<div className="space-y-5">{filteredCategories.map(category=><section key={category.id} className="panel overflow-hidden"><div className="flex items-center justify-between gap-3 border-b border-[#eeeae2] px-5 py-4 sm:px-6"><div><div className="font-bold">{category.name}</div><div className="mt-1 text-xs text-[#99998f]">{category.description||`${category.items.length} items in this category`}</div></div><span className="rounded-full bg-[#f5eee5] px-3 py-1 text-[10px] font-bold text-[#9a684d]">{category.items.length} items</span></div>{category.items.length===0?<p className="px-6 py-7 text-xs text-[#99998f]">No items in this category yet.</p>:<div className="divide-y divide-[#f0ede6]">{category.items.map(item=><div key={item.id} className="flex flex-wrap items-center gap-3 px-5 py-4 sm:px-6"><div className={`grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl ${item.dietaryType==="VEG"?"bg-[#eaf2e9] text-[#527a5b]":item.dietaryType==="EGG"?"bg-[#fbf2dc] text-[#a77a2d]":"bg-[#fbede7] text-[#c65e3d]"}`}>{item.imageUrl?<img src={item.imageUrl} alt={item.name} className="h-full w-full object-cover"/>:<Utensils size={17}/>}</div><div className="min-w-[150px] flex-1"><div className="text-sm font-bold">{item.name}</div><div className="mt-1 text-[11px] text-[#85867d]">{item.description||item.dietaryType.replace("_"," ")} · <Clock3 size={11} className="inline"/> {item.prepTimeMinutes} min</div></div><div className="mr-2 text-sm font-bold tabular-nums">₹{Number(item.price).toFixed(2)}</div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${item.available?"bg-[#eaf2e9] text-[#527a5b]":"bg-[#efeee9] text-[#77796f]"}`}>{item.available?"Available":"Unavailable"}</span>{!demoMode&&<button onClick={()=>toggleAvailability(item)} className="ghost-button !px-3 !py-2">{item.available?"Mark sold out":"Make available"}</button>}</div>)}</div>}</section>)}</div>}
       <p className="mt-7 text-center text-[10px] text-[#aaa99f]">{demoMode?"RestaurantOS menu workspace preview · Sample data only":"Menu prices and availability are branch-specific. Changes apply to the selected branch."}</p>
     </div>
   </main>;
