@@ -1,4 +1,5 @@
 import type { ElementType } from "react";
+import Link from "next/link";
 import { ArrowUpRight, Bell, CircleDollarSign, ClipboardList, Clock3, Coffee, LayoutDashboard, MoreHorizontal, QrCode, Search, Settings2, ShoppingBag, Store, Users, Utensils } from "lucide-react";
 
 const metrics = [
@@ -37,7 +38,7 @@ export default function Home() {
           <div className="nav-label">Workspace</div>
           <NavItem icon={LayoutDashboard} label="Overview" active/>
           <NavItem icon={ClipboardList} label="Orders"/>
-          <NavItem icon={Utensils} label="Menu"/>
+          <Link href="/menu" className="nav-link"><Utensils className="nav-icon" strokeWidth={1.8}/><span className="nav-text">Menu</span></Link>
           <NavItem icon={QrCode} label="Tables & QR"/>
           <NavItem icon={Users} label="Customers"/>
           <div className="nav-label">Manage</div>
