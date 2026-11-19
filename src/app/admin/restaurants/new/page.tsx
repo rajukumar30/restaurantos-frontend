@@ -48,7 +48,7 @@ export default function NewRestaurantPage() {
       const payload = await response.json();
       if (!response.ok || !payload.success) throw new Error(payload.message ?? "Could not create restaurant.");
       setCreated(payload.data);
-      setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressJson:"{}" });
+      setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressLine1:"", addressLine2:"", landmark:"", city:"", state:"", postalCode:"", country:"India" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally { setLoading(false); }
