@@ -75,10 +75,10 @@ export default function Home(){
   setRefreshing(true);
   try{
    const r=await fetch(`${API}/api/v1/tenants/${tenantId}/dashboard?branchId=${encodeURIComponent(branchId)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store",signal});
+   if(r.status===401){redirectToLogin();return;}
+   if(r.status===403)throw new Error("You do not have permission to view this dashboard.");
    const raw=await r.text();let p;
    try{p=JSON.parse(raw);}catch{throw new Error("Dashboard server returned an invalid response. Please retry.");}
-   if(r.status===401){redirectToLogin();throw new Error("Session expired. Redirecting to login…");}
-   if(r.status===403)throw new Error("You do not have permission to view this dashboard.");
    if(!r.ok||!p.success)throw new Error(p.message??"Cannot load dashboard");
    if(!signal?.aborted){setData(p.data);setError("");setUpdatedAt(new Date());}
   }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:"Unable to load dashboard");}
