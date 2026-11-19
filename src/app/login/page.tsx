@@ -34,7 +34,8 @@ export default function LoginPage() {
         authorities: payload.data.authorities,
         memberships: payload.data.memberships ?? [],
       }));
-      router.push(payload.data.authorities.includes("PLATFORM_ADMIN") ? "/admin/restaurants/new" : payload.data.memberships?.length ? "/staff" : "/");
+      const canManageTeam = (payload.data.memberships ?? []).some((membership: { roles?: string }) => /Owner|Manager/i.test(membership.roles ?? ""));
+      router.push(payload.data.authorities.includes("PLATFORM_ADMIN") ? "/admin/restaurants/new" : canManageTeam ? "/staff" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
