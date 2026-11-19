@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ChefHat, Clock3, RefreshCw, Search, Utensils } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
 type Membership={tenantId:string;tenantName:string;roles:string};
@@ -15,6 +15,7 @@ const statusLabel:Record<string,string>={NEW:"New order",ACCEPTED:"Accepted",PRE
 const tone:Record<string,string>={NEW:"bg-[#fbede7] text-[#c65e3d]",ACCEPTED:"bg-[#eaf0f6] text-[#55799c]",PREPARING:"bg-[#f8f0dc] text-[#98752d]",READY:"bg-[#eaf2e9] text-[#527a5b]",SERVED:"bg-[#efeee9] text-[#77796f]",CANCELLED:"bg-[#f2e8e8] text-[#a34e4e]"};
 
 export default function OrdersPage(){
+ const ownerRoute=usePathname().startsWith("/owner");
   const router=useRouter();
   const [token,setToken]=useState("");
   const [memberships,setMemberships]=useState<Membership[]>([]);
@@ -77,7 +78,7 @@ export default function OrdersPage(){
   function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
 
   return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Orders & kitchen</div></div></div><div className="flex gap-2"><Link href="/" className="ghost-button inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button hidden sm:block">Sign out</button></div></header>
+    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Orders & kitchen</div></div></div><div className="flex gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button hidden sm:block">Sign out</button></div></header>
     <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><div className="eyebrow">Workspace / Order operations</div><h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">Orders & kitchen<span className="text-[#E56A42]">.</span></h1><p className="mt-3 text-sm text-[#77796f]">Track incoming orders and move them through the kitchen workflow.</p></div><div className="flex items-center gap-3"><div className="text-right"><div className="text-xs font-semibold">{lastUpdated?"Updated "+time(lastUpdated.toISOString()):"Waiting for updates"}</div><div className="mt-1 text-[10px] text-[#99998f]">Auto-refreshes every 10 seconds</div></div><button onClick={()=>loadOrders(true)} className="ghost-button inline-flex items-center gap-2"><RefreshCw size={14}/> Refresh</button></div></div>
       <div className="mb-6 flex flex-wrap items-center gap-3"><label className="text-xs text-[#77796f]">Restaurant</label><select value={tenantId} onChange={e=>{setTenantId(e.target.value);setBranchId("");}} className="ghost-button">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select><label className="ml-2 text-xs text-[#77796f]">Branch</label><select value={branchId} onChange={e=>setBranchId(e.target.value)} className="ghost-button"><option value="">Select branch</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
