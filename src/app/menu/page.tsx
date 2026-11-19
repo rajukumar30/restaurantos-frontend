@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CirclePlus, Clock3, ImagePlus, LogOut, Plus, Search, Utensils, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 type Membership = { tenantId: string; tenantName: string; roles: string };
@@ -14,6 +14,7 @@ type Category = { id: string; name: string; description?: string; sortOrder: num
 const emptyItem = { categoryId:"", name:"", description:"", price:"", dietaryType:"VEG", prepTimeMinutes:"15", imageUrl:"" };
 
 export default function MenuPage() {
+ const ownerRoute=usePathname().startsWith("/owner");
   const router=useRouter();
   const [token,setToken]=useState("");
   const [demoMode,setDemoMode]=useState(false);
@@ -165,7 +166,7 @@ export default function MenuPage() {
   return <main className="min-h-screen bg-[#f7f4ec]">
     <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9">
       <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Menu management</div></div></div>
-      <div className="flex items-center gap-2"><Link href="/" className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button inline-flex items-center gap-2"><LogOut size={14}/> Sign out</button></div>
+      <div className="flex items-center gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button inline-flex items-center gap-2"><LogOut size={14}/> Sign out</button></div>
     </header>
     <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
       <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between mb-8">
