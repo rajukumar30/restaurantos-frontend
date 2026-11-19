@@ -44,6 +44,7 @@ export default function Home(){
  const [menuOpen,setMenuOpen]=useState(false);
  const [updatedAt,setUpdatedAt]=useState<Date|null>(null);
  const [branchRetry,setBranchRetry]=useState(0);
+ const redirectToLogin=useCallback(()=>{localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login?next=%2F");},[router]);
 
  useEffect(()=>{
   const t=localStorage.getItem("restaurantos_access_token");
@@ -62,12 +63,12 @@ export default function Home(){
   const controller=new AbortController();
   setBranchLoading(true);setError("");setBranches([]);setBranchId("");setData(null);setLoading(true);
   fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`},signal:controller.signal})
-   .then(async r=>{const raw=await r.text();let p: {success?:boolean;message?:string;data?:Branch[]};try{p=raw?JSON.parse(raw):{};}catch{throw new Error("Branch service returned an invalid response. Please retry.");}if(!r.ok||!p.success){if(r.status===401||r.status===403)throw new Error("Your session may have expired. Please sign in again.");throw new Error(p.message??(r.status===503||r.status===502||r.status===504?"Server is waking up or temporarily unavailable. Please retry.":"Cannot load branches (HTTP "+r.status+")"));}if(!Array.isArray(p.data))throw new Error("Branch data is unavailable. Please retry.");return p.data;})
+   .then(async r=>{const raw=await r.text();let p: {success?:boolean;message?:string;data?:Branch[]};try{p=raw?JSON.parse(raw):{};}catch{throw new Error("Branch service returned an invalid response. Please retry.");}if(!r.ok||!p.success){if(r.status===401){redirectToLogin();throw new Error("Session expired. Redirecting to login…");}if(r.status===403)throw new Error("You do not have permission to view this restaurant.");throw new Error(p.message??(r.status===503||r.status===502||r.status===504?"Server is waking up or temporarily unavailable. Please retry.":"Cannot load branches (HTTP "+r.status+")"));}if(!Array.isArray(p.data))throw new Error("Branch data is unavailable. Please retry.");return p.data;})
    .then(list=>{if(!controller.signal.aborted){setBranches(list);setBranchId(list[0]?.id??"");if(!list.length)setLoading(false);}})
    .catch(e=>{if(!controller.signal.aborted){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}})
    .finally(()=>{if(!controller.signal.aborted)setBranchLoading(false);});
   return()=>controller.abort();
- },[token,tenantId,branchRetry]);
+ },[token,tenantId,branchRetry,redirectToLogin]);
 
  const refresh=useCallback(async(signal?:AbortSignal)=>{
   if(!token||!tenantId||!branchId)return;
@@ -76,11 +77,13 @@ export default function Home(){
    const r=await fetch(`${API}/api/v1/tenants/${tenantId}/dashboard?branchId=${encodeURIComponent(branchId)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store",signal});
    const raw=await r.text();let p;
    try{p=JSON.parse(raw);}catch{throw new Error("Dashboard server returned an invalid response. Please retry.");}
+   if(r.status===401){redirectToLogin();throw new Error("Session expired. Redirecting to login…");}
+   if(r.status===403)throw new Error("You do not have permission to view this dashboard.");
    if(!r.ok||!p.success)throw new Error(p.message??"Cannot load dashboard");
    if(!signal?.aborted){setData(p.data);setError("");setUpdatedAt(new Date());}
   }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:"Unable to load dashboard");}
   finally{if(!signal?.aborted){setLoading(false);setRefreshing(false);}}
- },[token,tenantId,branchId]);
+ },[token,tenantId,branchId,redirectToLogin]);
 
  useEffect(()=>{
   if(!branchId)return;
