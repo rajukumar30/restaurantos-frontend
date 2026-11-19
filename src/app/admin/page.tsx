@@ -1,0 +1,3 @@
+"use client";
+import {useEffect} from "react";import {useRouter} from "next/navigation";
+export default function AdminHome(){const router=useRouter();useEffect(()=>{const token=localStorage.getItem("restaurantos_access_token");const raw=localStorage.getItem("restaurantos_user");if(!token||!raw){router.replace("/login?next=%2Fadmin%2F");return;}try{const user=JSON.parse(raw);router.replace(user.authorities?.includes("PLATFORM_ADMIN")?"/admin/restaurants/new":"/");}catch{router.replace("/login");}},[router]);return <main className="grid min-h-screen place-items-center">Opening platform administration…</main>;}
