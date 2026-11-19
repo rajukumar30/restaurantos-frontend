@@ -21,7 +21,8 @@ export default function GuestOrderPage(){
   const [orderNotes,setOrderNotes]=useState("");
   const [submitting,setSubmitting]=useState(false);
   const [orderError,setOrderError]=useState("");
-  const [receipt,setReceipt]=useState<{orderNumber:string;totalAmount:number;tableName:string}|null>(null);
+  const [receipt,setReceipt]=useState<{orderId:string;orderNumber:string;totalAmount:number;tableName:string;status:string}|null>(null);
+  const [trackingError,setTrackingError]=useState("");
 
   useEffect(()=>{
     if(!qrToken)return;let cancelled=false;
@@ -38,6 +39,26 @@ export default function GuestOrderPage(){
     load();return()=>{cancelled=true;};
   },[qrToken]);
 
+  useEffect(()=>{
+    if(!receipt?.orderId||!qrToken)return;
+    let cancelled=false;
+    async function refreshStatus(){
+      try{
+        const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(receipt!.orderId)}`,{cache:"no-store"});
+        if(!response.ok)throw new Error("Status updates are temporarily unavailable.");
+        const payload=await response.json();
+        if(!payload.success)throw new Error(payload.message??"Unable to check order status.");
+        if(!cancelled){
+          setReceipt(current=>current&&current.orderId===receipt!.orderId?{...current,status:payload.data.status}:current);
+          setTrackingError("");
+        }
+      }catch(e){if(!cancelled)setTrackingError(e instanceof Error?e.message:"Unable to check order status.");}
+    }
+    refreshStatus();
+    const timer=window.setInterval(refreshStatus,10000);
+    return()=>{cancelled=true;window.clearInterval(timer);};
+  },[receipt?.orderId,qrToken]);
+
   const items=useMemo(()=>menu?.categories.flatMap(category=>category.items)??[],[menu]);
   const cartItems=items.filter(item=>(cart[item.id]??0)>0);
   const count=cartItems.reduce((sum,item)=>sum+(cart[item.id]??0),0);
@@ -49,7 +70,7 @@ export default function GuestOrderPage(){
     try{
       const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerName:customerName.trim()||null,notes:orderNotes.trim()||null,items:cartItems.map(item=>({menuItemId:item.id,quantity:cart[item.id]}))})});
       const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not place your order.");
-      setReceipt({orderNumber:payload.data.orderNumber,totalAmount:Number(payload.data.totalAmount),tableName:payload.data.tableName});setCart({});setShowCart(false);setCustomerName("");setOrderNotes("");
+      setReceipt({orderId:payload.data.orderId,orderNumber:payload.data.orderNumber,totalAmount:Number(payload.data.totalAmount),tableName:payload.data.tableName,status:payload.data.status});setTrackingError("");setCart({});setShowCart(false);setCustomerName("");setOrderNotes("");
     }catch(e){setOrderError(e instanceof Error?e.message:"Unable to place your order.");}
     finally{setSubmitting(false);}
   }
@@ -65,7 +86,7 @@ export default function GuestOrderPage(){
       <p className="mt-8 text-center text-[10px] text-[#aaa99f]">Powered by RestaurantOS</p>
     </div>
     {menu&&count>0&&<div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e9e5dc] bg-[#fffefa]/95 p-4 backdrop-blur"><div className="mx-auto flex max-w-3xl items-center justify-between gap-3"><div><div className="text-xs font-bold">{count} {count===1?"item":"items"} in your cart</div><div className="mt-1 text-sm font-bold">₹{total.toFixed(2)}</div></div><button onClick={()=>setShowCart(true)} className="primary-button inline-flex items-center gap-2"><ShoppingBag size={15}/> View cart</button></div></div>}
-    {receipt&&<div className="fixed inset-0 z-50 grid place-items-center bg-[#171916]/55 p-4"><section role="dialog" aria-modal="true" aria-label="Order confirmation" className="w-full max-w-sm rounded-2xl bg-[#fffefa] p-7 text-center shadow-2xl"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#eaf2e9] text-[#527a5b]"><ShoppingBag size={22}/></div><div className="eyebrow mt-5">Order received</div><h2 className="mt-2 text-2xl font-bold">You’re all set.</h2><p className="mt-2 text-sm text-[#77796f]">Your order has been sent to the restaurant team.</p><div className="my-5 rounded-xl bg-[#f7f4ec] p-4"><div className="text-[10px] uppercase tracking-wider text-[#99998f]">Order number</div><div className="mt-1 text-xl font-bold">{receipt.orderNumber}</div><div className="mt-2 text-xs text-[#77796f]">{receipt.tableName} · ₹{receipt.totalAmount.toFixed(2)}</div></div><button onClick={()=>setReceipt(null)} className="primary-button w-full">Back to menu</button></section></div>}
+    {receipt&&<div className="fixed inset-0 z-50 grid place-items-center bg-[#171916]/55 p-4"><section role="dialog" aria-modal="true" aria-label="Order confirmation" className="w-full max-w-sm rounded-2xl bg-[#fffefa] p-7 text-center shadow-2xl"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#eaf2e9] text-[#527a5b]"><ShoppingBag size={22}/></div><div className="eyebrow mt-5">Order received</div><h2 className="mt-2 text-2xl font-bold">You’re all set.</h2><p className="mt-2 text-sm text-[#77796f]">Your order has been sent to the restaurant team. Status updates automatically every 10 seconds while this window is open.</p><div className="my-5 rounded-xl bg-[#f7f4ec] p-4"><div className="text-[10px] uppercase tracking-wider text-[#99998f]">Order number</div><div className="mt-1 text-xl font-bold">{receipt.orderNumber}</div><div className="mt-2 text-xs text-[#77796f]">{receipt.tableName} · ₹{receipt.totalAmount.toFixed(2)}</div></div><div aria-live="polite" className="mb-4 rounded-xl border border-[#e9e5dc] px-4 py-3"><div className="text-[10px] font-semibold uppercase tracking-wider text-[#99998f]">Live order status</div><div className="mt-1 text-sm font-bold text-[#527a5b]">{{NEW:"Received",ACCEPTED:"Accepted by restaurant",PREPARING:"Preparing your food",READY:"Ready to serve",SERVED:"Served",CANCELLED:"Cancelled"}[receipt.status]??receipt.status}</div>{trackingError&&<p role="status" className="mt-2 text-xs text-[#a7442a]">{trackingError}</p>}</div><button onClick={()=>setReceipt(null)} className="primary-button w-full">Back to menu</button></section></div>}
     {showCart&&menu&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-[#171916]/55 p-0 sm:items-center sm:p-4" onClick={()=>setShowCart(false)}><section role="dialog" aria-modal="true" aria-label="Your cart" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-[#fffefa] p-5 sm:rounded-2xl" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between"><div><div className="eyebrow">{menu.tableName}</div><h2 className="mt-1 text-xl font-bold">Your order</h2></div><button onClick={()=>setShowCart(false)} className="ghost-button">Close</button></div><div className="my-5 divide-y divide-[#eeeae2]">{cartItems.map(item=><div key={item.id} className="flex items-center justify-between gap-3 py-3"><div><div className="text-sm font-semibold">{item.name}</div><div className="mt-1 text-xs text-[#85867d]">₹{Number(item.price).toFixed(2)} × {cart[item.id]}</div></div><div className="text-sm font-bold">₹{(item.price*cart[item.id]).toFixed(2)}</div></div>)}</div><div className="flex justify-between border-t border-[#e9e5dc] pt-4 text-sm font-bold"><span>Total</span><span>₹{total.toFixed(2)}</span></div><div className="mt-5 space-y-3"><label className="block"><span className="text-xs font-semibold text-[#55584f]">Your name (optional)</span><input value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="Name for the order" maxLength={120} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm outline-none"/></label><label className="block"><span className="text-xs font-semibold text-[#55584f]">Special instructions (optional)</span><textarea value={orderNotes} onChange={e=>setOrderNotes(e.target.value)} placeholder="Allergies or preparation notes" maxLength={500} rows={2} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm outline-none"/></label></div>{orderError&&<p role="alert" className="mt-3 rounded-lg bg-[#fbede7] px-3 py-2 text-xs text-[#a7442a]">{orderError}</p>}<button onClick={placeOrder} disabled={submitting||!count} className="primary-button mt-5 w-full disabled:opacity-50">{submitting?"Placing order…":"Place order · ₹"+total.toFixed(2)}</button></section></div>}
   </main>;
 }
