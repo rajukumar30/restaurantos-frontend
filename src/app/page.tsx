@@ -1,4 +1,4 @@
-import { ArrowUpRight, Bell, ChefHat, ChevronDown, CircleDollarSign, ClipboardList, Clock3, Coffee, LayoutDashboard, MoreHorizontal, QrCode, Search, Settings2, ShoppingBag, Store, Users, Utensils } from "lucide-react";
+import { ArrowUpRight, Bell, ChevronDown, CircleDollarSign, ClipboardList, Clock3, Coffee, LayoutDashboard, MoreHorizontal, QrCode, Search, Settings2, ShoppingBag, Store, Users, Utensils } from "lucide-react";
 
 const metrics = [
   { label: "Gross revenue", value: "₹48,290", change: "+12.8% vs last week", icon: CircleDollarSign },
@@ -21,7 +21,7 @@ const popular = [
 ];
 
 function NavItem({ icon: Icon, label, active = false }: { icon: React.ElementType; label: string; active?: boolean }) {
-  return <a href="#" className={"nav-link " + (active ? "active" : "")}><Icon className="nav-icon" strokeWidth={1.8}/><span className="nav-text">{label}</span></a>;
+  return <div className={"nav-link " + (active ? "active" : "")} aria-current={active ? "page" : undefined}><Icon className="nav-icon" strokeWidth={1.8}/><span className="nav-text">{label}</span></div>;
 }
 
 export default function Home() {
@@ -41,7 +41,7 @@ export default function Home() {
           <NavItem icon={Users} label="Customers"/>
           <div className="nav-label">Manage</div>
           <NavItem icon={Store} label="Branches"/>
-          <NavItem icon={ChefHat} label="Kitchen"/>
+          <NavItem icon={Utensils} label="Kitchen"/>
           <NavItem icon={CircleDollarSign} label="Payments"/>
           <NavItem icon={Settings2} label="Settings"/>
         </nav>
@@ -59,11 +59,11 @@ export default function Home() {
 
       <main className="main-area">
         <header className="topbar">
-          <div><div className="eyebrow">Wednesday, November 19, 2026 · Noida</div><h1 className="page-title">Good afternoon<span className="text-[#E56A42]">.</span></h1><p className="text-[13px] text-[#77796f] mt-2">Here is what is happening at your restaurant today.</p></div>
+          <div><div className="eyebrow">Thursday, November 19, 2026 · Noida</div><h1 className="page-title">Good afternoon<span className="text-[#E56A42]">.</span></h1><p className="text-[13px] text-[#77796f] mt-2">Here is what is happening at your restaurant today.</p></div>
           <div className="flex items-center gap-2 sm:gap-3">
-            <button aria-label="Search" className="ghost-button !p-2.5"><Search size={16}/></button>
-            <button aria-label="Notifications" className="ghost-button !p-2.5 relative"><Bell size={16}/><span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-[#E56A42]"/></button>
-            <button className="ghost-button hidden sm:flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#527A5B]"/> Main branch <ChevronDown size={14}/></button>
+            <div aria-label="Search coming soon" title="Search is coming soon" className="ghost-button !p-2.5 text-[#a5a195]"><Search size={16}/></div>
+            <div aria-label="Notifications coming soon" title="Notifications are coming soon" className="ghost-button !p-2.5 relative text-[#a5a195]"><Bell size={16}/></div>
+            <div className="ghost-button hidden sm:flex items-center gap-2 text-[#77796f]"><span className="h-2 w-2 rounded-full bg-[#527A5B]"/> Main branch</div>
           </div>
         </header>
 
@@ -82,7 +82,7 @@ export default function Home() {
           <div className="panel p-5 sm:p-6">
             <div className="flex items-start justify-between gap-3">
               <div><div className="section-title">Revenue overview</div><div className="section-subtitle">Your sales performance through the week</div><div className="text-[27px] font-bold tracking-[-.055em] mt-4">₹48,290 <span className="text-[11px] font-semibold tracking-normal text-[#527A5B]">↗ 12.8%</span></div></div>
-              <button className="ghost-button flex items-center gap-2">This week <ChevronDown size={13}/></button>
+              <div className="ghost-button flex items-center gap-2 text-[#77796f]">This week</div>
             </div>
             <div className="chart-bars">
               {[42,62,48,78,58,92,70].map((height,i)=><div className="chart-bar-wrap" key={i}><div className={"chart-bar " + (i===5 ? "highlight" : "")} style={{height:height + "%"}} title={"Day " + (i+1)}/></div>)}
@@ -104,7 +104,7 @@ export default function Home() {
 
         <section className="grid grid-cols-1 xl:grid-cols-[1.55fr_1fr] gap-5">
           <div className="panel p-5 sm:p-6">
-            <div className="flex items-center justify-between mb-4"><div><div className="section-title">Live orders</div><div className="section-subtitle">A quick look at what is moving in your restaurant</div></div><a href="#" className="text-xs font-bold text-[#d65e39]">View all →</a></div>
+            <div className="flex items-center justify-between mb-4"><div><div className="section-title">Live orders</div><div className="section-subtitle">A quick look at what is moving in your restaurant</div></div><span className="text-xs font-semibold text-[#99998f]">Latest activity</span></div>
             <div className="table-row !border-0 !pt-1 !text-[10px] uppercase tracking-wider text-[#92938a] font-bold"><span>Order</span><span>Amount</span><span>Time</span><span>Status</span></div>
             {orders.map(order=><div className="table-row" key={order.id}>
               <div className="min-w-0"><div className="font-bold">{order.id}</div><div className="text-[10px] text-[#85867d] mt-1 truncate">{order.table} · {order.items}</div></div>
