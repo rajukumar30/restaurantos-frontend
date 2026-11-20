@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
+import StaffServiceRequests from "@/components/staff-service-requests";
 import {ChefHat,RefreshCw,Clock3,ShieldCheck,Wallet,Users,UtensilsCrossed,BarChart3} from "lucide-react";
 
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
@@ -52,6 +53,7 @@ export default function StaffDashboard(){
   {error&&<p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
   <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-lg font-bold"><RoleIcon size={20}/> {config.queue}</h2><span className="flex items-center gap-1 text-xs text-[#788078]"><Clock3 size={14}/>{updated?"Updated "+updated.toLocaleTimeString():"Waiting for updates"}</span></div>
   {loading?<div className="rounded-2xl border bg-white p-10 text-center">Loading orders…</div>:queue.length===0?<div className="rounded-2xl border bg-white p-10 text-center text-[#788078]">No active orders for this branch.</div>:<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{queue.map(o=><article key={o.id} className="rounded-2xl border bg-white p-5 shadow-sm"><div className="flex items-start justify-between gap-2"><div><p className="font-bold">#{o.orderNumber}</p><p className="mt-1 text-sm text-[#788078]">{o.tableName}</p></div><span className="rounded-full bg-[#f5e6db] px-3 py-1 text-xs font-bold text-[#a65d38]">{o.status}</span></div><p className="mt-4 min-h-12 text-sm leading-6">{o.itemsSummary||o.itemCount+" items"}</p><div className="mt-4 flex items-center justify-between border-t pt-4"><span className="text-xs text-[#788078]">{new Date(o.createdAt).toLocaleTimeString()}</span>{canAdvance(o)&&<button disabled={updating===o.id} onClick={()=>void advance(o)} className="rounded-xl bg-[#e7764c] px-4 py-2 text-xs font-bold text-white disabled:opacity-50">{updating===o.id?"Updating…":next[o.status]==="READY"?"Mark ready":next[o.status]==="SERVED"?"Mark served":next[o.status]==="PREPARING"?"Start preparing":"Accept order"}</button>}</div></article>)}</div>}
+  {branchId&&access.permissions.includes("orders:read")&&role!=="KITCHEN"&&<StaffServiceRequests tenantId={tenantId} branchId={branchId} token={token} canManage={manage}/>}
   <div className="mt-8 flex flex-wrap items-center gap-3 text-xs text-[#788078]"><ShieldCheck size={16}/>This view and its actions follow your assigned role and branch permissions.</div>
   </div>
  </main>;
