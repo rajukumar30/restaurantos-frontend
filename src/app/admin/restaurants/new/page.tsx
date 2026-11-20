@@ -1,11 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowLeft, Building2, CheckCircle2, LogOut, Store, UserRound } from "lucide-react";
+import { Building2, CheckCircle2, Store, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
 
 export default function NewRestaurantPage() {
   const router = useRouter();
@@ -63,21 +63,11 @@ export default function NewRestaurantPage() {
     } finally { setLoading(false); }
   }
 
-  function logout() {
-    localStorage.removeItem("restaurantos_access_token");
-    localStorage.removeItem("restaurantos_user");
-    router.push("/login");
-  }
-
   if (!authorized) return <main className="min-h-screen grid place-items-center text-sm text-[#77796f]">Checking administrator access…</main>;
 
   return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9">
-      <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Platform administration</div></div></div>
-      <Link href="/admin/restaurants/service" className="text-xs font-semibold text-[#d56a45]">Service settings</Link><button onClick={logout} className="ghost-button flex items-center gap-2"><LogOut size={14}/> Sign out</button>
-    </header>
     <div className="mx-auto max-w-4xl px-5 py-9 sm:px-8 sm:py-12">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs text-[#77796f] mb-8"><ArrowLeft size={14}/> Dashboard overview</Link>
+
       <div className="mb-8"><div className="eyebrow">Platform / Restaurants</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Onboard a restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Create a restaurant workspace, its first branch and the owner account in one step.</p></div>
       {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><Link className="mt-3 inline-block rounded-lg bg-[#315d39] px-3 py-2 text-xs font-semibold text-white" href={"/admin/restaurants/service?tenantId="+created.tenantId}>Configure service workflow</Link><p className="mt-2 text-xs">Workspace slug: <strong>{created.slug}</strong></p><p className="text-xs mt-1">The owner can sign in at <strong>/login</strong> on the current RestaurantOS Vercel domain using the email and password you set.</p><p className="text-xs mt-1">Restaurant-specific subdomains will be activated later, after a custom domain is configured.</p></div>}
       {error && <div role="alert" className="mb-6 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
