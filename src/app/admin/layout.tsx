@@ -21,7 +21,7 @@ const groups = [
     {label:"Billing & Payments",href:"/admin/billing",icon:Wallet,ready:false}
   ]},
   {label:"OPERATIONS",items:[
-    {label:"Users & Access",href:"/admin/users",icon:Users,ready:false},
+    {label:"Users & Access",href:"/admin/users",icon:Users,ready:true},
     {label:"System Monitoring",href:"/admin/monitoring",icon:Activity,ready:false},
     {label:"Support Center",href:"/admin/support",icon:Headphones,ready:false},
     {label:"Notifications",href:"/admin/notifications",icon:Bell,ready:false}
