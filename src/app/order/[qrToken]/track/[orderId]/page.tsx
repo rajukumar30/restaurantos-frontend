@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { CheckCircle2, Clock3, RefreshCw, Utensils } from "lucide-react";
+import { CheckCircle2, Clock3, RefreshCw, Utensils, Home, BookOpen, ReceiptText, ArrowLeft } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
 type OrderStatus = { orderNumber: string; status: string; totalAmount: number; createdAt: string };
@@ -22,6 +22,9 @@ export default function TrackOrderPage() {
   const [error, setError] = useState("");
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [branding,setBranding]=useState<{restaurantName:string;logoUrl?:string;theme?:string;tableName?:string}|null>(null);
+  const accent=branding?.theme==="BOLD"?"#a54225":branding?.theme==="MINIMAL"?"#3d4540":"#243128";
+  useEffect(()=>{fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}`).then(r=>r.json()).then(p=>{if(p.success)setBranding(p.data);}).catch(()=>{});},[qrToken]);
 
   useEffect(() => {
     if (!qrToken || !orderId) return;
@@ -30,7 +33,7 @@ export default function TrackOrderPage() {
       try {
         const response = await fetch(
           `${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`,
-          { cache: "no-store", headers: { Authorization: "Bearer " + (JSON.parse(sessionStorage.getItem("restaurantos_customer_session") || "{}").token || "") } }
+          { cache: "no-store" }
         );
         const payload = await response.json();
         if (!response.ok || !payload.success) throw new Error(payload.message ?? "Unable to load this order.");
@@ -53,15 +56,11 @@ export default function TrackOrderPage() {
   const activeIndex = stages.findIndex(stage => stage.key === order?.status);
   const cancelled = order?.status === "CANCELLED";
 
-  return <main className="min-h-screen bg-[#f7f4ec] px-4 py-10 sm:py-16">
+  return <main className="min-h-screen bg-[#fffaf4] pb-28 text-[#292820]"><header style={{backgroundColor:accent}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{branding?.logoUrl?<img src={branding.logoUrl} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
     <div className="mx-auto max-w-lg">
-      <div className="mb-8 flex items-center gap-3">
-        <div className="brand-mark">r.</div>
-        <div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[10px] uppercase tracking-widest text-[#99998f]">Order tracking</div></div>
-      </div>
       <section className="panel p-6 sm:p-8">
         <div className="eyebrow">Your order</div>
-        <h1 className="mt-2 text-2xl font-bold">Track your food<span className="text-[#E56A42]">.</span></h1>
+        <h1 className="mt-2 text-2xl font-bold">Track your food<span style={{color:accent}}>.</span></h1>
         {loading && !order ? <p className="mt-8 text-sm text-[#77796f]">Loading your order…</p> :
           !order ? <div className="mt-8"><p role="alert" className="text-sm text-[#a7442a]">{error || "Order not found."}</p><Link href={`/order/${encodeURIComponent(qrToken)}`} className="ghost-button mt-5 inline-block">Return to menu</Link></div> :
           <>
@@ -85,12 +84,12 @@ export default function TrackOrderPage() {
             {error && <p role="alert" className="mt-5 text-xs text-[#a7442a]">{error} Showing the last known status.</p>}
             <div className="mt-7 flex items-center justify-between border-t border-[#e9e5dc] pt-5">
               <p className="text-xs text-[#99998f]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · Every 10 sec</p>
-              <button onClick={() => setRefreshKey(key => key + 1)} className="ghost-button inline-flex items-center gap-2"><RefreshCw size={14} /> Refresh</button>
+              <button onClick={() => setRefreshKey(key => key + 1)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={14} /> Refresh</button>
             </div>
           </>}
       </section>
       <Link href={`/order/${encodeURIComponent(qrToken)}`} className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-[#77796f]"><Utensils size={15} /> Back to restaurant menu</Link>
-      <p className="mt-5 text-center text-xs text-[#99998f]">Save this page to check your order again later. Anyone with this link can view its status.</p>
-    </div>
+      <p className="mt-5 text-center text-xs text-[#99998f]">This order is saved in your browser history. Keep your order link private.</p>
+    </div><nav aria-label="Guest navigation" className="fixed inset-x-0 bottom-0 border-t border-[#e6dfd3] bg-white px-4 py-3"><div className="mx-auto grid max-w-lg grid-cols-3 gap-2">{[{label:"Home",icon:<Home size={19}/>,href:`/order/${encodeURIComponent(qrToken)}`},{label:"Menu",icon:<BookOpen size={19}/>,href:`/order/${encodeURIComponent(qrToken)}#guest-menu`},{label:"Orders",icon:<ReceiptText size={19}/>,href:`/order/${encodeURIComponent(qrToken)}?view=orders`}].map(n=><Link key={n.label} href={n.href} className="flex flex-col items-center gap-1 text-xs font-semibold text-[#514f43]">{n.icon}{n.label}</Link>)}</div></nav>
   </main>;
 }
