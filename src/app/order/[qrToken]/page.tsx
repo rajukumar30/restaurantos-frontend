@@ -122,13 +122,33 @@ export default function GuestOrderPage(){
     }
     refreshSavedOrders();return()=>{cancelled=true;};
   },[ordersOpen,qrToken]);
-  useEffect(()=>{try{const saved=sessionStorage.getItem("restaurantos_guest_contact");if(saved){const data=JSON.parse(saved);if(typeof data.name==="string"){setAuthName(current=>current||data.name);setProfileName(current=>current||data.name);}if(typeof data.phone==="string")setAuthPhone(current=>current||data.phone);}}catch{/* ignore */}try{const saved=localStorage.getItem("restaurantos_guest_profile_"+qrToken);if(saved){const data=JSON.parse(saved);if(typeof data.name==="string"){setProfileName(data.name);setAuthName(current=>current||data.name);}if(typeof data.phone==="string")setAuthPhone(current=>current||data.phone);}}catch{/* ignore */}},[qrToken]);
+  useEffect(()=>{
+    try{
+      const saved=sessionStorage.getItem("restaurantos_guest_visit_"+qrToken);
+      if(saved){const data=JSON.parse(saved);const now=Date.now();
+        if(data.startedAt&&data.lastActivity&&now-data.lastActivity<4*60*60*1000&&now-data.startedAt<8*60*60*1000){
+          if(typeof data.name==="string"){setAuthName(data.name);setProfileName(data.name);}
+          if(typeof data.phone==="string")setAuthPhone(data.phone);
+          return;
+        }
+        sessionStorage.removeItem("restaurantos_guest_visit_"+qrToken);
+      }
+    }catch{/* storage unavailable */}
+    try{const saved=localStorage.getItem("restaurantos_guest_profile_"+qrToken);
+      if(saved){const data=JSON.parse(saved);if(typeof data.name==="string"){setProfileName(data.name);setAuthName(data.name);}if(typeof data.phone==="string")setAuthPhone(data.phone);}
+    }catch{/* storage unavailable */}
+  },[qrToken]);
+  const VISIT_MAX_MS=8*60*60*1000;
+  function saveVisit(name:string,phone:string){
+    try{const key="restaurantos_guest_visit_"+qrToken;const now=Date.now();const old=JSON.parse(sessionStorage.getItem(key)||"null");const startedAt=old?.phone===phone&&old?.startedAt&&now-old.startedAt<VISIT_MAX_MS?old.startedAt:now;sessionStorage.setItem(key,JSON.stringify({name,phone,startedAt,lastActivity:now}));}catch{/* storage unavailable */}
+  }
   function saveGuestDetails(){
-    if(authName.trim().length<2){setAuthError("Please enter your full name.");return;}
-    if(!/^[6-9][0-9]{9}$/.test(authPhone)){setAuthError("Enter a valid 10-digit Indian mobile number.");return;}
-    sessionStorage.setItem("restaurantos_guest_contact",JSON.stringify({name:authName.trim(),phone:authPhone}));
-    setProfileName(orderName);setAuthName(orderName);setAuthPhone(orderPhone);try{localStorage.setItem("restaurantos_guest_profile_"+qrToken,JSON.stringify({name:orderName,phone:orderPhone}));}catch{/* storage unavailable */}setAuthError("");setAuthOpen(false);
-    if(count>0)setShowCart(true);
+    const name=authName.trim();const phone=historyToken?historyPhone:authPhone;
+    if(name.length<2){setAuthError("Please enter your full name.");return;}
+    if(!/^[6-9][0-9]{9}$/.test(phone)){setAuthError("Enter a valid 10-digit Indian mobile number.");return;}
+    saveVisit(name,phone);setProfileName(name);setAuthName(name);setAuthPhone(phone);
+    try{localStorage.setItem("restaurantos_guest_profile_"+qrToken,JSON.stringify({name,phone}));}catch{/* storage unavailable */}
+    setAuthError("");setAuthOpen(false);if(count>0)setShowCart(true);
   }
   async function placeOrder(){
     if(!menu||!count||submitting)return;
@@ -140,7 +160,9 @@ export default function GuestOrderPage(){
       const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerName:orderName,customerPhone:"+91"+orderPhone,notes:orderNotes.trim()||null,items:cartItems.map(item=>({menuItemId:item.id,quantity:cart[item.id]}))})});
       const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not place your order.");
       const placed={orderId:payload.data.orderId,orderNumber:payload.data.orderNumber,totalAmount:Number(payload.data.totalAmount),tableName:payload.data.tableName,status:payload.data.status,createdAt:new Date().toISOString()};
-      setProfileName(authName.trim());try{localStorage.setItem("restaurantos_guest_profile_"+qrToken,JSON.stringify({name:authName.trim(),phone:authPhone}));}catch{/* storage unavailable */}setReceipt(placed);setGuestOrders(current=>{const updated=[placed,...current.filter(o=>o.orderId!==placed.orderId)].slice(0,50);try{localStorage.setItem("restaurantos_guest_orders_"+qrToken,JSON.stringify(updated));}catch{/* storage unavailable */}return updated;});setTrackingError("");setCart({});setShowCart(false);setOrderNotes("");
+      saveVisit(orderName,orderPhone);setProfileName(orderName);setAuthName(orderName);setAuthPhone(orderPhone);
+      try{localStorage.setItem("restaurantos_guest_profile_"+qrToken,JSON.stringify({name:orderName,phone:orderPhone}));}catch{/* storage unavailable */}
+      setReceipt(placed);setGuestOrders(current=>{const updated=[placed,...current.filter(o=>o.orderId!==placed.orderId)].slice(0,50);try{localStorage.setItem("restaurantos_guest_orders_"+qrToken,JSON.stringify(updated));}catch{/* storage unavailable */}return updated;});setTrackingError("");setCart({});setShowCart(false);setOrderNotes("");
     }catch(e){setOrderError(e instanceof Error?e.message:"Unable to place your order.");}
     finally{setSubmitting(false);}
   }
