@@ -25,10 +25,10 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  useEffect(()=>{let active=true;
  async function initialize(){
   const token=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");
-  if(!token||!raw){router.replace("/login?next="+encodeURIComponent(pathname));return;}
+  if(!token||!raw){setLoading(false);router.replace("/login?next="+encodeURIComponent(pathname));return;}
   try{
    const user=JSON.parse(raw),memberships=user.memberships||[];
-   if(!memberships.length){router.replace("/login");return;}
+   if(!memberships.length){setLoading(false);router.replace("/login");return;}
    const membership=memberships[0];setRestaurant(membership.tenantName||"Restaurant workspace");setName(user.name||"Team member");
    const headers={Authorization:"Bearer "+token};
    const branchesResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers);
@@ -67,7 +67,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
   ...(cashier&&access.permissions.includes("payments:read")?[
    {href:"/staff/operations/cashier-orders",label:"Billing queue",icon:ClipboardList}]:[])
  ];
- const links=[{href:home,label:"Dashboard",icon:LayoutDashboard},
+ const links=[{href:home,label:resolvedRole==="KITCHEN"?"Kitchen display":resolvedRole==="WAITER"?"Table service":resolvedRole==="CASHIER"?"Billing & payments":"Dashboard",icon:resolvedRole==="KITCHEN"?ChefHat:resolvedRole==="WAITER"?UtensilsCrossed:resolvedRole==="CASHIER"?Wallet:LayoutDashboard},
  ...navigation.slice(1).filter(item=>item.href!==home&&allowed(item.href)),...extra];
  const current=pathname==="/staff"||pathname==="/staff/"?home:pathname;
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
