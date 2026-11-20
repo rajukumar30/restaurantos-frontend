@@ -3,16 +3,34 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChartColumnIncreasing, ChefHat, LayoutDashboard, LogOut, Menu, PlusCircle, Settings2, ShieldCheck, X } from "lucide-react";
+import { Building2, ChartColumnIncreasing, ChefHat, LayoutDashboard, LogOut, Menu, PlusCircle, Settings2, ShieldCheck, X, Users, Activity, Headphones, Bell, ScrollText, SlidersHorizontal, Package, Wallet } from "lucide-react";
 
-const navigation = [
-  {label:"Overview",href:"/admin/dashboard",icon:LayoutDashboard},
-  {label:"Analytics & Reports",href:"/admin/analytics",icon:ChartColumnIncreasing},
-  {label:"Restaurants",href:"/admin/restaurants",icon:Building2},
-  {label:"Add restaurant",href:"/admin/restaurants/new",icon:PlusCircle},
-  {label:"Feature management",href:"/admin/restaurants/features",icon:Settings2},
-  {label:"Service workflows",href:"/admin/restaurants/service",icon:ChefHat},
-];
+const groups = [
+  {label:"OVERVIEW",items:[
+    {label:"Dashboard",href:"/admin/dashboard",icon:LayoutDashboard,ready:true},
+    {label:"Analytics & Reports",href:"/admin/analytics",icon:ChartColumnIncreasing,ready:true}
+  ]},
+  {label:"RESTAURANT MANAGEMENT",items:[
+    {label:"Restaurants",href:"/admin/restaurants",icon:Building2,ready:true},
+    {label:"Onboard restaurant",href:"/admin/restaurants/new",icon:PlusCircle,ready:true},
+    {label:"Feature management",href:"/admin/restaurants/features",icon:Settings2,ready:true},
+    {label:"Service workflows",href:"/admin/restaurants/service",icon:ChefHat,ready:true}
+  ]},
+  {label:"BUSINESS",items:[
+    {label:"Plans & Subscriptions",href:"/admin/plans",icon:Package,ready:false},
+    {label:"Billing & Payments",href:"/admin/billing",icon:Wallet,ready:false}
+  ]},
+  {label:"OPERATIONS",items:[
+    {label:"Users & Access",href:"/admin/users",icon:Users,ready:false},
+    {label:"System Monitoring",href:"/admin/monitoring",icon:Activity,ready:false},
+    {label:"Support Center",href:"/admin/support",icon:Headphones,ready:false},
+    {label:"Notifications",href:"/admin/notifications",icon:Bell,ready:false}
+  ]},
+  {label:"PLATFORM",items:[
+    {label:"Security & Audit Logs",href:"/admin/audit",icon:ScrollText,ready:false},
+    {label:"Platform Settings",href:"/admin/settings",icon:SlidersHorizontal,ready:false}
+  ]}
+] as const;
 
 export default function PlatformAdminLayout({children}:{children:ReactNode}) {
   const pathname=usePathname();
@@ -45,11 +63,13 @@ export default function PlatformAdminLayout({children}:{children:ReactNode}) {
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-[#e8e4dc] bg-[#fffefa] shadow-xl transition-transform lg:translate-x-0 lg:shadow-none ${menuOpen?"translate-x-0":"-translate-x-full"}`}>
       <Link href="/admin/dashboard" className="flex h-20 items-center gap-3 border-b border-[#eee9e0] px-6"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#e56a42] text-xl font-black text-white">r.</span><span><strong className="block text-lg tracking-tight">restaurant<span className="text-[#e56a42]">os</span></strong><small className="text-[10px] font-bold uppercase tracking-widest text-[#77796f]">Control center</small></span></Link>
       <nav aria-label="Platform navigation" className="flex-1 space-y-1 overflow-y-auto px-3 py-6">
-        <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-widest text-[#92948b]">Workspace</p>
-        {navigation.map(({label,href,icon:Icon})=>{
-          const active=pathname===href;
-          return <Link key={href} href={href} aria-current={active?"page":undefined} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-colors ${active?"bg-[#fff0e8] text-[#b85d3e]":"text-[#55594f] hover:bg-[#f7f4ec]"}`}><Icon size={19}/>{label}</Link>;
-        })}
+        {groups.map(group=><div key={group.label} className="mb-5"><p className="mb-2 px-3 text-[10px] font-extrabold tracking-[.15em] text-[#92948b]">{group.label}</p>
+          {group.items.map(({label,href,icon:Icon,ready})=>{
+            const active=pathname===href;
+            return ready?<Link key={href} href={href} aria-current={active?"page":undefined} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${active?"bg-[#fff0e8] text-[#b85d3e]":"text-[#55594f] hover:bg-[#f7f4ec]"}`}><Icon size={18}/><span className="flex-1">{label}</span></Link>
+            :<div key={href} title="Coming soon" className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[#a3a69f]"><Icon size={18}/><span className="flex-1">{label}</span><span className="text-[9px] font-bold uppercase">Soon</span></div>;
+          })}
+        </div>)}
       </nav>
       <div className="border-t border-[#eee9e0] p-4"><button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-[#8c4035] hover:bg-red-50"><LogOut size={19}/> Sign out</button></div>
     </aside>
