@@ -1,13 +1,13 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {useRouter,useSearchParams} from "next/navigation";
+import {useRouter} from "next/navigation";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Branch={branchId:string;branchName:string;mode:string};
 export default function RestaurantServiceSettings(){
- const router=useRouter(),params=useSearchParams();const [token,setToken]=useState(""),[tenant,setTenant]=useState(params.get("tenantId")||"");
+ const router=useRouter();const [token,setToken]=useState(""),[tenant,setTenant]=useState("");
  const [branches,setBranches]=useState<Branch[]>([]),[error,setError]=useState(""),[notice,setNotice]=useState(""),[loading,setLoading]=useState(false),[busy,setBusy]=useState("");
- useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");try{if(!t||!raw||!JSON.parse(raw).authorities?.includes("PLATFORM_ADMIN")){router.replace("/login");return;}setToken(t);}catch{router.replace("/login");}},[router]);
+ useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");try{if(!t||!raw||!JSON.parse(raw).authorities?.includes("PLATFORM_ADMIN")){router.replace("/login");return;}setToken(t);setTenant(new URLSearchParams(window.location.search).get("tenantId")||"");}catch{router.replace("/login");}},[router]);
  async function parse(r:Response){const p=await r.json();if(!r.ok||!p.success)throw Error(p.message||"Request failed ("+r.status+")");return p.data;}
  async function load(){if(!token||!tenant.trim())return;setLoading(true);setError("");setNotice("");try{const data=await parse(await fetch(API+"/api/v1/platform/restaurant-service/"+encodeURIComponent(tenant.trim()),{headers:{Authorization:"Bearer "+token},cache:"no-store"}));setBranches(data);}catch(e){setBranches([]);setError(e instanceof Error?e.message:"Could not load restaurant");}finally{setLoading(false);}}
  async function update(branchId:string,mode:string){setBusy(branchId);setError("");setNotice("");try{await parse(await fetch(API+"/api/v1/platform/restaurant-service/"+encodeURIComponent(tenant.trim()),{method:"PUT",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId,mode})}));setBranches(prev=>prev.map(b=>b.branchId===branchId?{...b,mode}:b));setNotice("Service workflow saved.");}catch(e){setError(e instanceof Error?e.message:"Unable to save");}finally{setBusy("");}}
