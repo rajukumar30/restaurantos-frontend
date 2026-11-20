@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Building2, ChefHat, LayoutDashboard, LogOut, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 
 const sections = [
+  { title: "All restaurants", description: "Search restaurants and open their feature settings.", href: "/admin/restaurants", icon: Building2, available: true },
   { title: "Onboard restaurant", description: "Create a tenant, first branch and owner account.", href: "/admin/restaurants/new", icon: Building2, available: true },
   { title: "Service workflow", description: "Configure kitchen-managed or waiter-confirmed service per branch.", href: "/admin/restaurants/service", icon: ChefHat, available: true },
   { title: "Restaurant feature management", description: "Assign feature entitlements, dependencies and restaurant overrides.", href: "/admin/restaurants/features", icon: Settings2, available: true },
