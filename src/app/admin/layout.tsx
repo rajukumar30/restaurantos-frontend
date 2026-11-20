@@ -27,7 +27,7 @@ const groups = [
     {label:"Notifications",href:"/admin/notifications",icon:Bell,ready:false}
   ]},
   {label:"PLATFORM",items:[
-    {label:"Security & Audit Logs",href:"/admin/audit",icon:ScrollText,ready:false},
+    {label:"Security & Audit Logs",href:"/admin/audit",icon:ScrollText,ready:true},
     {label:"Platform Settings",href:"/admin/settings",icon:SlidersHorizontal,ready:false}
   ]}
 ] as const;
