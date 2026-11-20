@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Clock3, RefreshCw, Utensils } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
 type OrderStatus = { orderNumber: string; status: string; totalAmount: number; createdAt: string };
 const stages = [
   { key: "NEW", label: "Order received", description: "The restaurant has received your order." },
@@ -30,7 +30,7 @@ export default function TrackOrderPage() {
       try {
         const response = await fetch(
           `${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`,
-          { cache: "no-store" }
+          { cache: "no-store", headers: { Authorization: "Bearer " + (JSON.parse(sessionStorage.getItem("restaurantos_customer_session") || "{}").token || "") } }
         );
         const payload = await response.json();
         if (!response.ok || !payload.success) throw new Error(payload.message ?? "Unable to load this order.");
