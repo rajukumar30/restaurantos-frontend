@@ -19,7 +19,8 @@ const groups = [
     {label:"Restaurant support lookup",href:"/admin/users",icon:Users,ready:true}
   ]},
   {label:"BUSINESS",items:[
-    {label:"Plans & Subscriptions",href:"/admin/plans",icon:Package,ready:true},
+    {label:"Plan Catalog",href:"/admin/plans",icon:Package,ready:true},
+    {label:"Restaurant Subscriptions",href:"/admin/subscriptions",icon:Wallet,ready:true},
     {label:"Billing & Payments",href:"/admin/billing",icon:Wallet,ready:false}
   ]},
   {label:"OPERATIONS",items:[
