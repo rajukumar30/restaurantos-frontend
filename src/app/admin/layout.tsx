@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import {useSessionGuard,isSessionExpired,clearSessionAndRedirect} from "@/lib/session-guard";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Building2, ChartColumnIncreasing, ChefHat, LayoutDashboard, LogOut, Menu, PlusCircle, Settings2, ShieldCheck, X, Users, Activity, Headphones, Bell, ScrollText, SlidersHorizontal, Package, Wallet } from "lucide-react";
@@ -35,13 +36,15 @@ const groups = [
 
 export default function PlatformAdminLayout({children}:{children:ReactNode}) {
   const pathname=usePathname();
+  useSessionGuard(authorized);
   const router=useRouter();
   const [authorized,setAuthorized]=useState(false);
   const [menuOpen,setMenuOpen]=useState(false);
   useEffect(()=>{
     const token=localStorage.getItem("restaurantos_access_token");
     const raw=localStorage.getItem("restaurantos_user");
-    if(!token||!raw){router.replace("/login?next="+encodeURIComponent(pathname));return;}
+    if(!token||isSessionExpired(token)){clearSessionAndRedirect(pathname);return;}
+    if(!raw){router.replace("/login?next="+encodeURIComponent(pathname));return;}
     try {
       const user=JSON.parse(raw) as {authorities?:string[]};
       if(!user.authorities?.includes("PLATFORM_ADMIN")){router.replace("/");return;}
