@@ -55,9 +55,9 @@ export default function PlatformAdminLayout({children}:{children:ReactNode}) {
   }
   if(!authorized)return <div className="grid min-h-screen place-items-center bg-[#f7f4ec] text-sm text-[#77796f]">Checking platform administrator access…</div>;
   return <div className="min-h-screen bg-[#f7f4ec] text-[#171916]">
-    <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-[#e8e4dc] bg-white px-4 shadow-sm lg:pl-[284px] sm:px-6">
-      <div className="flex items-center gap-3"><button type="button" aria-label="Open navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(v=>!v)} className="rounded-lg p-2 hover:bg-[#f7f4ec] lg:hidden">{menuOpen?<X size={21}/>:<Menu size={21}/>}</button><span className="text-sm font-bold sm:text-base">Platform administration</span></div>
-      <span className="inline-flex items-center gap-2 rounded-full bg-[#edf5ed] px-3 py-2 text-xs font-bold text-[#42704d]"><ShieldCheck size={15}/> Super Admin</span>
+    <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-[#e8e4dc] bg-white px-4 shadow-sm sm:h-16 sm:px-6">
+      <div className="flex items-center gap-3"><button type="button" aria-label="Open navigation" aria-expanded={menuOpen} onClick={()=>setMenuOpen(v=>!v)} className="rounded-lg p-2 hover:bg-[#f7f4ec] lg:hidden">{menuOpen?<X size={21}/>:<Menu size={21}/>}</button><span className="truncate text-sm font-bold sm:text-base">Platform admin</span></div>
+      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#edf5ed] px-2 py-1.5 text-[11px] font-bold text-[#42704d] sm:gap-2 sm:px-3 sm:py-2 sm:text-xs"><ShieldCheck size={15}/> Super Admin</span>
     </header>
     {menuOpen&&<button type="button" aria-label="Close navigation" onClick={()=>setMenuOpen(false)} className="fixed inset-0 z-40 bg-black/40 lg:hidden"/>}
     <aside className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-[#e8e4dc] bg-[#fffefa] shadow-xl transition-transform lg:translate-x-0 lg:shadow-none ${menuOpen?"translate-x-0":"-translate-x-full"}`}>
@@ -73,6 +73,6 @@ export default function PlatformAdminLayout({children}:{children:ReactNode}) {
       </nav>
       <div className="border-t border-[#eee9e0] p-4"><button type="button" onClick={logout} className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold text-[#8c4035] hover:bg-red-50"><LogOut size={19}/> Sign out</button></div>
     </aside>
-    <div className="lg:pl-[260px]"><div className="mx-auto max-w-7xl">{children}</div></div>
+    <div className="min-w-0 lg:pl-[260px]"><div className="mx-auto max-w-7xl">{children}</div></div>
   </div>;
 }
