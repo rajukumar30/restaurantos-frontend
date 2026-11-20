@@ -4,7 +4,8 @@ import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
 import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History} from "lucide-react";
 import {staffRole,roleHome} from "./role-routes";
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+async function fetchWithTimeout(url:string,headers:HeadersInit){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{return await fetch(url,{headers,signal:controller.signal,cache:"no-store"});}finally{clearTimeout(timeout);}}
 type Access={roles:string[];permissions:string[]};
 type NavItem={href:string;label:string;icon:typeof LayoutDashboard};
 const navigation:NavItem[]=[
@@ -20,6 +21,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const [restaurant,setRestaurant]=useState("Restaurant workspace");
  const [name,setName]=useState("Team member");
  const [error,setError]=useState("");
+ const [retry,setRetry]=useState(0);
  useEffect(()=>{let active=true;
  async function initialize(){
   const token=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");
@@ -29,20 +31,20 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
    if(!memberships.length){router.replace("/login");return;}
    const membership=memberships[0];setRestaurant(membership.tenantName||"Restaurant workspace");setName(user.name||"Team member");
    const headers={Authorization:"Bearer "+token};
-   const branchesResponse=await fetch(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",{headers});
+   const branchesResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers);
    const branchesPayload=await branchesResponse.json();
    if(!branchesResponse.ok||!branchesPayload.success)throw Error(branchesPayload.message||"Cannot load staff access");
    const branch=branchesPayload.data?.[0];
    if(!branch)throw Error("No active branch assigned to this account.");
-   const response=await fetch(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/access?branchId="+branch.id,{headers});
+   const response=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/access?branchId="+branch.id,headers);
    const payload=await response.json();
    if(!response.ok||!payload.success)throw Error(payload.message||"Cannot load permissions");
    if(active){setAccess(payload.data);setError("");}
-  }catch(e){if(active)setError(e instanceof Error?e.message:"Cannot load staff access");}
+  }catch(e){if(active)setError(e instanceof Error&&e.name==="AbortError"?"The server is taking too long to respond. Please retry.":e instanceof Error?e.message:"Cannot load staff access");}
   finally{if(active)setLoading(false);}
  }
  void initialize();return()=>{active=false;};
- },[router]);
+ },[router,retry]);
  const roles=access.roles.map(r=>r.toUpperCase());
  const resolvedRole=staffRole(roles);
  const home=roleHome(resolvedRole);
@@ -72,8 +74,8 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
  useEffect(()=>{if(loading||error)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,pathname,home,router]);
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
- if(loading)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Opening staff workspace…</main>;
- if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><button className="mt-5 rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></main>;
+ if(loading)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p><p className="mt-2 text-xs text-[#77796f]">Connecting to restaurant server (up to 20 seconds)</p><button onClick={()=>{setLoading(true);setRetry(n=>n+1);}} className="mt-4 rounded-lg border bg-white px-4 py-2 text-sm">Retry connection</button></div></main>;
+ if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><div className="mt-5 flex justify-center gap-2"><button className="rounded-xl border px-4 py-2" onClick={()=>{setLoading(true);setError("");setRetry(n=>n+1);}}>Retry</button><button className="rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></div></main>;
  if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!links.some(item=>item.href===current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
  return <div className="min-h-screen bg-[#f7f7f4] text-[#20241f] lg:flex">
  {open&&<button aria-label="Close navigation" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
