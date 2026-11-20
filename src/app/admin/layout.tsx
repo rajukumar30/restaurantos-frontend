@@ -3,10 +3,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, ChefHat, LayoutDashboard, LogOut, Menu, PlusCircle, Settings2, ShieldCheck, X } from "lucide-react";
+import { Building2, ChartColumnIncreasing, ChefHat, LayoutDashboard, LogOut, Menu, PlusCircle, Settings2, ShieldCheck, X } from "lucide-react";
 
 const navigation = [
   {label:"Overview",href:"/admin/dashboard",icon:LayoutDashboard},
+  {label:"Analytics & Reports",href:"/admin/analytics",icon:ChartColumnIncreasing},
   {label:"Restaurants",href:"/admin/restaurants",icon:Building2},
   {label:"Add restaurant",href:"/admin/restaurants/new",icon:PlusCircle},
   {label:"Feature management",href:"/admin/restaurants/features",icon:Settings2},
