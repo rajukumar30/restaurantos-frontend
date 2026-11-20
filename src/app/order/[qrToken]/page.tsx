@@ -75,6 +75,7 @@ export default function GuestOrderPage(){
   const total=cartItems.reduce((sum,item)=>sum+item.price*(cart[item.id]??0),0);
   function change(itemId:string,delta:number){setCart(current=>({...current,[itemId]:Math.min(20,Math.max(0,(current[itemId]??0)+delta))}));}
 
+  useEffect(()=>{if(new URLSearchParams(window.location.search).get("view")==="orders"){setOrdersOpen(true);window.history.replaceState(null,"",window.location.pathname);}},[]);
   useEffect(()=>{try{const saved=localStorage.getItem("restaurantos_guest_orders_"+qrToken);if(saved)setGuestOrders(JSON.parse(saved));}catch{/* ignore */}},[qrToken]);
   useEffect(()=>{try{const saved=sessionStorage.getItem("restaurantos_guest_contact");if(saved){const data=JSON.parse(saved);if(typeof data.name==="string")setAuthName(data.name);if(typeof data.phone==="string")setAuthPhone(data.phone);}}catch{/* ignore */}},[]);
   function saveGuestDetails(){
