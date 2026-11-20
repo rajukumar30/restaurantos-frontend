@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Building2, ChefHat, LayoutDashboard, LogOut, Settings2, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Building2, ChefHat, LayoutDashboard, Settings2, ShieldCheck, Sparkles } from "lucide-react";
 
 const sections = [
   { title: "All restaurants", description: "Search restaurants and open their feature settings.", href: "/admin/restaurants", icon: Building2, available: true },
@@ -27,26 +27,10 @@ export default function PlatformDashboard() {
     } catch { router.replace("/login"); }
   }, [router]);
 
-  function signOut() {
-    localStorage.removeItem("restaurantos_access_token");
-    localStorage.removeItem("restaurantos_user");
-    router.replace("/login");
-  }
-
   if (!authorized) return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Checking platform administrator access…</main>;
 
   return (
     <main className="min-h-screen bg-[#f7f4ec] text-[#171916]">
-      <header className="border-b border-[#e9e5dc] bg-[#fffefa]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4">
-          <Link href="/admin/dashboard" className="flex items-center gap-3">
-            <span className="brand-mark">r.</span>
-            <span><span className="block text-base font-extrabold tracking-tight">restaurant<span className="text-[#e56a42]">os</span></span><span className="block text-[10px] font-semibold uppercase tracking-[.15em] text-[#77796f]">Platform administration</span></span>
-          </Link>
-          <button type="button" onClick={signOut} className="ghost-button flex items-center gap-2"><LogOut size={15} /> Sign out</button>
-        </div>
-      </header>
-
       <div className="mx-auto max-w-6xl px-5 py-9 sm:py-12">
         <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
