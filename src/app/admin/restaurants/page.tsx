@@ -40,16 +40,16 @@ export default function RestaurantDirectory() {
     }
     void load();return()=>controller.abort();
   },[token,submitted,page]);
-  return <main className="min-h-screen bg-[#f7f4ec] px-5 py-9 text-[#171916]"><div className="mx-auto max-w-5xl">
+  return <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 sm:px-8 sm:py-9 text-[#171916]"><div className="mx-auto max-w-5xl">
     <Link href="/admin/dashboard" className="text-sm font-semibold text-[#b85d3e]">← Platform dashboard</Link>
-    <div className="mt-7 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-extrabold">Restaurants</h1><p className="mt-2 text-sm text-[#77796f]">Find and manage onboarded restaurants.</p></div><Link className="primary-button" href="/admin/restaurants/new">Add restaurant</Link></div>
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-extrabold sm:text-3xl">Restaurants</h1><p className="mt-2 text-sm text-[#77796f]">Find and manage onboarded restaurants.</p></div><Link className="primary-button" href="/admin/restaurants/new">Add restaurant</Link></div>
     <form className="mt-7 flex gap-2" onSubmit={e=>{e.preventDefault();setPage(0);setSubmitted(search.trim());}}>
       <input aria-label="Search restaurants" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or slug" className="min-w-0 flex-1 rounded-xl border border-[#e9e5dc] bg-white px-4 py-3 text-sm"/>
       <button className="primary-button" type="submit">Search</button>
     </form>
     {error&&<p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
     <div className="mt-5 overflow-hidden rounded-2xl border border-[#e9e5dc] bg-white">
-      {loading?<p className="p-6 text-sm">Loading restaurants…</p>:rows.length===0?<p className="p-6 text-sm text-[#77796f]">No restaurants found.</p>:<div className="divide-y divide-[#e9e5dc]">{rows.map(r=><div key={r.id} className="flex flex-wrap items-center justify-between gap-4 p-5"><div><h2 className="font-bold">{r.name}</h2><p className="mt-1 text-xs text-[#77796f]">{r.slug} · {r.subdomain} · {r.status}</p></div><Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(r.id)} className="text-sm font-bold text-[#b85d3e]">Manage features →</Link></div>)}</div>}
+      {loading?<p className="p-6 text-sm">Loading restaurants…</p>:rows.length===0?<p className="p-6 text-sm text-[#77796f]">No restaurants found.</p>:<div className="divide-y divide-[#e9e5dc]">{rows.map(r=><div key={r.id} className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5"><div><h2 className="font-bold">{r.name}</h2><p className="mt-1 text-xs text-[#77796f]">{r.slug} · {r.subdomain} · {r.status}</p></div><Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(r.id)} className="text-sm font-bold text-[#b85d3e]">Manage features →</Link></div>)}</div>}
     </div>
     <div className="mt-5 flex items-center justify-between"><button type="button" disabled={page===0||loading} onClick={()=>setPage(p=>p-1)} className="rounded-xl border bg-white px-4 py-2 text-sm disabled:opacity-40">Previous</button><span className="text-sm text-[#77796f]">Page {page+1}</span><button type="button" disabled={loading||rows.length<25} onClick={()=>setPage(p=>p+1)} className="rounded-xl border bg-white px-4 py-2 text-sm disabled:opacity-40">Next</button></div>
   </div></main>;
