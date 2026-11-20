@@ -41,7 +41,7 @@ export default function RestaurantDirectory() {
     void load();return()=>controller.abort();
   },[token,submitted,page]);
   return <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 sm:px-8 sm:py-9 text-[#171916]"><div className="mx-auto max-w-5xl">
-    <Link href="/admin/dashboard" className="text-sm font-semibold text-[#b85d3e]">← Platform dashboard</Link>
+    
     <div className="mt-5 flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-2xl font-extrabold sm:text-3xl">Restaurants</h1><p className="mt-2 text-sm text-[#77796f]">Find and manage onboarded restaurants.</p></div><Link className="primary-button" href="/admin/restaurants/new">Add restaurant</Link></div>
     <form className="mt-7 flex gap-2" onSubmit={e=>{e.preventDefault();setPage(0);setSubmitted(search.trim());}}>
       <input aria-label="Search restaurants" maxLength={100} value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or slug" className="min-w-0 flex-1 rounded-xl border border-[#e9e5dc] bg-white px-4 py-3 text-sm"/>
