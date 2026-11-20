@@ -15,15 +15,34 @@ const names:Record<string,string>=Object.fromEntries(options.map(o=>[o.type,o.ti
 async function data(res:Response){const body=await res.json();if(!res.ok||!body.success)throw Error(body.message||"Unable to reach restaurant staff");return body.data;}
 export default function GuestService({qrToken,tableName}:{qrToken:string;tableName:string}){
  const [requests,setRequests]=useState<Request[]>([]);
+ const [available,setAvailable]=useState<boolean|null>(null);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState("");
  const [error,setError]=useState("");
  const [notes,setNotes]=useState("");
  const [otherOpen,setOtherOpen]=useState(false);
  const load=useCallback(async()=>{try{const r=await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{cache:"no-store"}));setRequests(r);setError("");}catch(e){setError(e instanceof Error?e.message:"Unable to load requests");}finally{setLoading(false);}},[qrToken]);
- useEffect(()=>{void load();const timer=setInterval(()=>void load(),10000);return()=>clearInterval(timer);},[load]);
+ useEffect(()=>{
+  let cancelled=false;
+  void (async()=>{
+   try {
+    const response=await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/availability",{cache:"no-store"});
+    if(!response.ok)throw Error("Service availability unavailable");
+    const payload=await response.json();
+    if(!cancelled)setAvailable(payload.success===true && payload.data===true);
+   } catch { if(!cancelled)setAvailable(false); }
+  })();
+  return()=>{cancelled=true;};
+ },[qrToken]);
+ useEffect(()=>{
+  if(available!==true)return;
+  void load();
+  const timer=setInterval(()=>void load(),10000);
+  return()=>clearInterval(timer);
+ },[load,available]);
  async function send(type:string){if(busy)return;if(type==="OTHER"&&!notes.trim()){setOtherOpen(true);return;}setBusy(type);setError("");try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,notes:type==="OTHER"?notes.trim():null})}));setOtherOpen(false);setNotes("");await load();}catch(e){setError(e instanceof Error?e.message:"Could not send request");}finally{setBusy("");}}
  async function cancel(id:string){setBusy(id);try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/"+id+"/cancel",{method:"PATCH"}));await load();}catch(e){setError(e instanceof Error?e.message:"Unable to cancel request");}finally{setBusy("");}}
+ if(available!==true)return null;
  return <section className="mx-auto max-w-xl pb-8">
   <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#8b7864]">{tableName}</p><h1 className="mt-2 text-2xl font-extrabold text-[#242b24]">How can we help?</h1><p className="mt-2 text-sm text-[#757b73]">Choose what you need. Our staff will be notified.</p></div><div className="rounded-2xl bg-[#edf5ed] p-3 text-[#2a6d3c]"><BellRing size={23}/></div></div>
   <div className="mt-6 grid grid-cols-2 gap-3">{options.map(o=>{const Icon=o.icon;const active=requests.find(r=>r.type===o.type&&r.status!=="COMPLETED");return <button key={o.type} type="button" disabled={!!busy||!!active} onClick={()=>o.type==="OTHER"?setOtherOpen(true):void send(o.type)} className="min-h-[132px] rounded-2xl border border-[#e6e9e3] bg-white p-4 text-left shadow-sm transition active:scale-[.98] disabled:opacity-65"><Icon size={23} className="text-[#267d45]"/><p className="mt-3 text-sm font-extrabold text-[#263126]">{o.title}</p><p className="mt-1 text-[11px] leading-4 text-[#81877e]">{active?"Already requested":o.description}</p></button>;})}</div>
