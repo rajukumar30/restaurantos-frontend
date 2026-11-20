@@ -13,6 +13,7 @@ export default function FeatureManagementPage() {
   const router = useRouter();
   const [token,setToken] = useState("");
   const [tenantId,setTenantId] = useState("");
+  const [restaurants,setRestaurants] = useState<{id:string;name:string;slug:string}[]>([]);
   const [features,setFeatures] = useState<Feature[]>([]);
   const [loaded,setLoaded] = useState(false);
   const [loading,setLoading] = useState(false);
@@ -29,6 +30,7 @@ export default function FeatureManagementPage() {
       if (!JSON.parse(raw).authorities?.includes("PLATFORM_ADMIN")) { router.replace("/"); return; }
       setToken(t);
       setTenantId(new URLSearchParams(window.location.search).get("tenantId") ?? "");
+      fetch(API+"/api/v1/platform/restaurants",{headers:{Authorization:"Bearer "+t}}).then(r=>r.json()).then(d=>{if(d.success&&Array.isArray(d.data))setRestaurants(d.data);}).catch(()=>{});
     } catch { router.replace("/login"); }
   },[router]);
 
@@ -63,8 +65,13 @@ export default function FeatureManagementPage() {
       <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-[#b85d3e]"><ArrowLeft size={16}/> Platform dashboard</Link>
       <div className="mt-7 flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f5eee5] text-[#b85d3e]"><Settings2 size={22}/></span><div><h1 className="text-3xl font-extrabold tracking-tight">Restaurant features</h1><p className="mt-2 text-sm text-[#77796f]">Control which capabilities are available to each restaurant.</p></div></div>
       <section className="panel mt-7 p-5">
-        <label htmlFor="restaurant-id" className="block text-sm font-bold">Restaurant ID</label>
-        <div className="mt-3 flex flex-wrap gap-2"><input id="restaurant-id" className="min-w-0 flex-1 rounded-xl border px-3 py-2 text-sm" placeholder="Paste restaurant UUID" value={tenantId} onChange={e=>{setTenantId(e.target.value);setLoaded(false);setFeatures([]);}}/><button type="button" onClick={()=>void load()} disabled={!token||!tenantId.trim()||loading} className="primary-button disabled:opacity-50">{loading?"Loading…":"Load features"}</button></div>
+        <label htmlFor="restaurant-select" className="block text-sm font-bold">Choose a restaurant</label>
+        <div className="mt-3 flex flex-wrap gap-2"><select id="restaurant-select" className="min-w-0 flex-1 rounded-xl border bg-white px-3 py-3 text-sm" value={tenantId} onChange={e=>{setTenantId(e.target.value);setLoaded(false);setFeatures([]);}}>
+          <option value="">Select restaurant</option>
+          {tenantId&&!restaurants.some(r=>r.id===tenantId)&&<option value={tenantId}>Selected restaurant</option>}
+          {restaurants.map(r=><option key={r.id} value={r.id}>{r.name} ({r.slug})</option>)}
+        </select><button type="button" onClick={()=>void load()} disabled={!token||!tenantId||loading} className="primary-button disabled:opacity-50">{loading?"Loading…":"Manage features"}</button></div>
+        <Link href="/admin/restaurants" className="mt-3 inline-block text-xs font-semibold text-[#b85d3e]">Browse all restaurants →</Link>
       </section>
       {pending&&<div role="dialog" aria-modal="true" aria-labelledby="feature-confirm-title" className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-5"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><h2 id="feature-confirm-title" className="text-lg font-extrabold">Confirm restaurant feature change</h2><p className="mt-3 text-sm leading-6 text-[#555]">You are about to <strong>{pending.enabled?"disable":"enable"} {pending.name}</strong> for restaurant <strong className="break-all">{tenantId}</strong>. Disabling a live feature may interrupt restaurant operations.</p><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={()=>setPending(null)} className="rounded-xl border px-4 py-2 text-sm font-semibold">Cancel</button><button type="button" disabled={!!saving} onClick={()=>void update(pending)} className="rounded-xl bg-[#8c342c] px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Confirm change</button></div></div></div>}
       {error&&<p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
