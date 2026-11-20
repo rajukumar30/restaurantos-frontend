@@ -35,7 +35,7 @@ export default function UsersPage(){
   return()=>controller.abort();
  },[tenantId,term,page]);
  return <main className="px-4 py-5 sm:px-8 sm:py-10">
-  <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#c15d3c]">Operations</p><h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Users & Access</h1><p className="mt-2 text-sm text-[#77796f]">Review restaurant memberships, assigned roles and account status. Read-only access in this release.</p></div>
+  <div className="mb-6"><p className="text-xs font-bold uppercase tracking-[.18em] text-[#c15d3c]">Restaurant support</p><h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Restaurant account lookup</h1><p className="mt-2 text-sm text-[#77796f]">Support-only lookup of restaurant memberships, assigned roles and account status. This page cannot change staff access.</p></div>
   <section className="rounded-2xl border border-[#e8e5dd] bg-white p-4 shadow-sm sm:p-6">
    <div className="mb-5 flex items-center gap-2"><Users size={20} className="text-[#c15d3c]"/><h2 className="font-bold">Restaurant users</h2></div>
    <form onSubmit={e=>{e.preventDefault();setPage(0);setTerm(search.trim());}} className="flex flex-col gap-3 sm:flex-row">
