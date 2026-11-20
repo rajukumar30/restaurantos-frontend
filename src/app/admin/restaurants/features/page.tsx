@@ -60,11 +60,11 @@ export default function FeatureManagementPage() {
     finally {setSaving("");}
   }
   const categories=Array.from(new Set(features.map(f=>f.category)));
-  return <main className="min-h-screen bg-[#f7f4ec] px-5 py-9 text-[#171916]">
+  return <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 sm:px-8 sm:py-9 text-[#171916]">
     <div className="mx-auto max-w-4xl">
       <Link href="/admin/dashboard" className="inline-flex items-center gap-2 text-sm font-semibold text-[#b85d3e]"><ArrowLeft size={16}/> Platform dashboard</Link>
-      <div className="mt-7 flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f5eee5] text-[#b85d3e]"><Settings2 size={22}/></span><div><h1 className="text-3xl font-extrabold tracking-tight">Restaurant features</h1><p className="mt-2 text-sm text-[#77796f]">Control which capabilities are available to each restaurant.</p></div></div>
-      <section className="panel mt-7 p-5">
+      <div className="mt-5 flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#f5eee5] text-[#b85d3e]"><Settings2 size={22}/></span><div><h1 className="text-2xl font-extrabold sm:text-3xl tracking-tight">Restaurant features</h1><p className="mt-2 text-sm text-[#77796f]">Control which capabilities are available to each restaurant.</p></div></div>
+      <section className="panel mt-5 p-4 sm:p-5">
         <label htmlFor="restaurant-select" className="block text-sm font-bold">Choose a restaurant</label>
         <div className="mt-3 flex flex-wrap gap-2"><select id="restaurant-select" className="min-w-0 flex-1 rounded-xl border bg-white px-3 py-3 text-sm" value={tenantId} onChange={e=>{setTenantId(e.target.value);setLoaded(false);setFeatures([]);}}>
           <option value="">Select restaurant</option>
