@@ -77,6 +77,28 @@ export default function GuestOrderPage(){
 
   useEffect(()=>{if(new URLSearchParams(window.location.search).get("view")==="orders"){setOrdersOpen(true);window.history.replaceState(null,"",window.location.pathname);}},[]);
   useEffect(()=>{try{const saved=localStorage.getItem("restaurantos_guest_orders_"+qrToken);if(saved)setGuestOrders(JSON.parse(saved));}catch{/* ignore */}},[qrToken]);
+  useEffect(()=>{
+    if(!ordersOpen||!qrToken||guestOrders.length===0)return;
+    let cancelled=false;
+    async function refreshSavedOrders(){
+      const updated=await Promise.all(guestOrders.slice(0,20).map(async order=>{
+        try{
+          const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(order.orderId)}`,{cache:"no-store"});
+          if(!response.ok)return order;
+          const payload=await response.json();
+          return payload.success?{...order,status:payload.data.status}:order;
+        }catch{return order;}
+      }));
+      if(cancelled)return;
+      setGuestOrders(current=>{
+        const byId=new Map(updated.map(o=>[o.orderId,o.status]));
+        const merged=current.map(o=>byId.has(o.orderId)?{...o,status:byId.get(o.orderId)!}:o);
+        try{localStorage.setItem("restaurantos_guest_orders_"+qrToken,JSON.stringify(merged));}catch{/* storage unavailable */}
+        return merged;
+      });
+    }
+    refreshSavedOrders();return()=>{cancelled=true;};
+  },[ordersOpen,qrToken]);
   useEffect(()=>{try{const saved=sessionStorage.getItem("restaurantos_guest_contact");if(saved){const data=JSON.parse(saved);if(typeof data.name==="string")setAuthName(data.name);if(typeof data.phone==="string")setAuthPhone(data.phone);}}catch{/* ignore */}},[]);
   function saveGuestDetails(){
     if(authName.trim().length<2){setAuthError("Please enter your full name.");return;}
@@ -102,7 +124,7 @@ export default function GuestOrderPage(){
     <header style={{backgroundColor:accent}} className="px-5 py-5 text-white"><div className="mx-auto max-w-3xl"><p className="text-xs font-semibold uppercase tracking-[.2em] text-[#e8c9a1]">Freshly made · Served with care</p><div className="mt-1 flex items-center gap-2 text-sm font-semibold">{menu?.logoUrl?<img src={menu.logoUrl} alt={menu.restaurantName+" logo"} className="h-10 w-10 rounded-full bg-white object-cover"/>:<Utensils size={17}/>} {menu?.restaurantName||"Your table, your menu"}</div></div></header>
     <div className="mx-auto max-w-3xl px-4 py-7 sm:px-8 sm:py-10">
       {loading?<div className="panel py-20 text-center text-sm text-[#99998f]">Loading restaurant menu…</div>:error?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#fbede7] text-[#c65e3d]"><Utensils size={22}/></div><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[#85867d]">{error}</p><p className="mt-5 text-xs text-[#aaa99f]">Please ask a staff member for help or scan the table QR code again.</p></div>:menu&&<>
-        <div style={{backgroundColor:accent,backgroundImage:menu.bannerUrl?`linear-gradient(90deg,rgba(0,0,0,.68),rgba(0,0,0,.32)),url("${menu.bannerUrl.replaceAll('"','%22')}")`:undefined,backgroundSize:"cover",backgroundPosition:"center"}} className="mb-8 overflow-hidden rounded-[28px] px-6 py-9 text-white shadow-lg"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#e6c69e]">Welcome to ${menu.tableName}</p><h1 className="mt-3 text-4xl font-black tracking-tight">{menu.restaurantName}</h1><p className="mt-3 text-sm text-[#d4dfd0]">{menu.branchName} · {menu.slogan||"Enjoy exploring our menu"}</p></div>
+        <div style={{backgroundColor:accent,backgroundImage:menu.bannerUrl?`linear-gradient(90deg,rgba(0,0,0,.68),rgba(0,0,0,.32)),url("${menu.bannerUrl.replaceAll('"','%22')}")`:undefined,backgroundSize:"cover",backgroundPosition:"center"}} className="mb-8 overflow-hidden rounded-[28px] px-6 py-9 text-white shadow-lg"><p className="text-xs font-semibold uppercase tracking-[.18em] text-[#e6c69e]">Welcome to {menu.tableName}</p><h1 className="mt-3 text-4xl font-black tracking-tight">{menu.restaurantName}</h1><p className="mt-3 text-sm text-[#d4dfd0]">{menu.branchName} · {menu.slogan||"Enjoy exploring our menu"}</p></div>
         <div id="guest-menu"/><label className="mb-4 flex items-center gap-3 rounded-2xl border border-[#e9e0d2] bg-white px-4 py-3"><Search size={19} className="text-[#9a806b]"/><input aria-label="Search dishes" value={search} onChange={e=>setSearch(e.target.value)} placeholder="What are you craving?" className="w-full bg-transparent text-sm outline-none"/></label>
         <div className="mb-6 flex gap-2 overflow-x-auto pb-2"><button onClick={()=>setActiveCategory("all")} className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-bold ${activeCategory==="all"?"bg-[#243128] text-white":"border bg-white"}`}>All dishes</button>{menu.categories.filter(c=>c.items.length>0).map(c=><button key={c.id} onClick={()=>setActiveCategory(c.id)} className={`whitespace-nowrap rounded-full px-5 py-2 text-sm font-bold ${activeCategory===c.id?"bg-[#243128] text-white":"border bg-white"}`}>{c.name}</button>)}</div>
         {menu.categories.filter(c=>(activeCategory==="all"||c.id===activeCategory)&&c.items.some(i=>!search||[i.name,i.description||""].join(" ").toLowerCase().includes(search.toLowerCase()))).map(category=><section key={category.id} className="mb-5 overflow-hidden rounded-3xl border border-[#e9e0d2] bg-white shadow-[0_6px_24px_rgba(60,40,20,.04)]"><div className="border-b border-[#eeeae2] px-5 py-4"><h2 className="font-bold">{category.name}</h2><p className="mt-1 text-[11px] text-[#99998f]">{category.items.length} items</p></div>{category.items.length===0?<p className="px-5 py-6 text-xs text-[#99998f]">No items currently available.</p>:<div className="divide-y divide-[#f0ede6]">{category.items.filter(i=>!search||[i.name,i.description||""].join(" ").toLowerCase().includes(search.toLowerCase())).map(item=><div key={item.id} className="flex items-center gap-3 px-5 py-4"><div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-sm border-2 ${item.dietaryType==="VEG"?"border-[#527a5b]":item.dietaryType==="EGG"?"border-[#b88a37]":"border-[#c65e3d]"}`}/><h3 className="text-sm font-bold">{item.name}</h3></div>{item.description&&<p className="mt-1 text-xs leading-5 text-[#85867d]">{item.description}</p>}<div className="mt-2 text-sm font-bold tabular-nums">₹{Number(item.price).toFixed(2)} <span className="ml-1 text-[10px] font-normal text-[#99998f]">· {item.prepTimeMinutes} min</span></div></div><div className="flex items-center gap-2">{(cart[item.id]??0)>0&&<button onClick={()=>change(item.id,-1)} aria-label={`Remove one ${item.name}`} className="grid h-9 w-9 place-items-center rounded-full border border-[#e4dfd4]"><Minus size={14}/></button>}<span className="w-4 text-center text-xs font-bold">{cart[item.id]??0}</span><button onClick={()=>change(item.id,1)} aria-label={`Add one ${item.name}`} disabled={(cart[item.id]??0)>=20} className="grid h-9 w-9 place-items-center rounded-full bg-[#243128] text-white disabled:opacity-40"><Plus size={14}/></button></div></div>)}</div>}</section>)}
