@@ -36,9 +36,9 @@ const groups = [
 
 export default function PlatformAdminLayout({children}:{children:ReactNode}) {
   const pathname=usePathname();
-  useSessionGuard(authorized);
   const router=useRouter();
   const [authorized,setAuthorized]=useState(false);
+  useSessionGuard(authorized);
   const [menuOpen,setMenuOpen]=useState(false);
   useEffect(()=>{
     const token=localStorage.getItem("restaurantos_access_token");
