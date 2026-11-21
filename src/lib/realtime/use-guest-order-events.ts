@@ -17,7 +17,7 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
     refreshTimer=undefined;
     if(!active)return;
     lastRefresh=Date.now();
-    scheduleRefresh();
+    callback.current();
    },Math.max(0,350-(Date.now()-lastRefresh)));
   };
   const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
