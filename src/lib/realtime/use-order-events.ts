@@ -15,6 +15,9 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
  useEffect(()=>{
   if(!token||!tenantId||!branchId){return;}
   let active=true;
+  const refreshOnFocus=()=>{if(document.visibilityState==="visible")onChangeRef.current();};
+  window.addEventListener("focus",refreshOnFocus);
+  document.addEventListener("visibilitychange",refreshOnFocus);
   const seen=new Set<string>();
   const url=API.replace(/^http/,"ws").replace(/\/$/,"")+"/ws/realtime";
   const client=new Client({
@@ -44,7 +47,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   });
   setStatus("connecting");
   client.activate();
-  return()=>{active=false;void client.deactivate();};
+  return()=>{active=false;window.removeEventListener("focus",refreshOnFocus);document.removeEventListener("visibilitychange",refreshOnFocus);void client.deactivate();};
  },[token,tenantId,branchId,topic]);
  return status;
 }
