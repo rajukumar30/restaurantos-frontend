@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import { Bell, Minus, Plus, ShoppingBag, Utensils, Search, Clock3, List, Home, BookOpen, ReceiptText, UserRound, X, Check } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -74,25 +75,20 @@ export default function GuestOrderPage(){
     load();return()=>{cancelled=true;};
   },[qrToken]);
 
-  useEffect(()=>{
-    if(!receipt?.orderId||!qrToken)return;
-    let cancelled=false;
-    async function refreshStatus(){
-      try{
-        const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(receipt!.orderId)}`,{cache:"no-store"});
-        if(!response.ok)throw new Error("Status updates are temporarily unavailable.");
-        const payload=await response.json();
-        if(!payload.success)throw new Error(payload.message??"Unable to check order status.");
-        if(!cancelled){
-          setReceipt(current=>current&&current.orderId===receipt!.orderId?{...current,status:payload.data.status}:current);
-          setTrackingError("");
-        }
-      }catch(e){if(!cancelled)setTrackingError(e instanceof Error?e.message:"Unable to check order status.");}
-    }
-    refreshStatus();
-    const timer=window.setInterval(refreshStatus,10000);
-    return()=>{cancelled=true;window.clearInterval(timer);};
-  },[receipt?.orderId,qrToken]);
+  const receiptOrderId=receipt?.orderId??"";
+  const refreshReceiptStatus=useCallback(async()=>{
+    if(!receiptOrderId||!qrToken)return;
+    try{
+      const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(receiptOrderId)}`,{cache:"no-store"});
+      if(!response.ok)throw new Error("Status updates are temporarily unavailable.");
+      const payload=await response.json();
+      if(!payload.success)throw new Error(payload.message??"Unable to check order status.");
+      setReceipt(current=>current&&current.orderId===receiptOrderId?{...current,status:payload.data.status}:current);
+      setTrackingError("");
+    }catch(e){setTrackingError(e instanceof Error?e.message:"Unable to check order status.");}
+  },[receiptOrderId,qrToken]);
+  useEffect(()=>{void refreshReceiptStatus();},[refreshReceiptStatus]);
+  const receiptRealtime=useGuestOrderEvents(qrToken,receiptOrderId,()=>{void refreshReceiptStatus();});
 
   const items=useMemo(()=>menu?.categories.flatMap(category=>category.items)??[],[menu]);
   const cartItems=items.filter(item=>(cart[item.id]??0)>0);
