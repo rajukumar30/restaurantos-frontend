@@ -29,9 +29,9 @@ export default function PlanFeaturesPage() {
       return payload.data;
     }
     Promise.all([
-      get<Plan>("/api/v1/platform/plans/" + encodeURIComponent(planId)),
+      get<Plan[]>("/api/v1/platform/plans"),
       get<Feature[]>("/api/v1/platform/plans/" + encodeURIComponent(planId) + "/features")
-    ]).then(([p, f]) => { if (!controller.signal.aborted) { setPlan(p); setFeatures(f); } })
+    ]).then(([plans, f]) => { if (!controller.signal.aborted) { const p = plans.find(item => item.id === planId); if (!p) throw new Error("Plan not found"); setPlan(p); setFeatures(f); } })
       .catch(e => { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Unable to load plan"); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
