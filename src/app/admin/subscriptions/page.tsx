@@ -1,17 +1,16 @@
 "use client";
 import {useEffect,useState} from "react";
 import Link from "next/link";
-import {useSearchParams} from "next/navigation";
 type Restaurant={id:string;name:string};
 type Plan={id:string;name:string;status:string;monthlyPricePaise:number;annualPricePaise:number};
 type Subscription={id:string;tenantId:string;restaurantName:string;planId:string;planName:string;billingCycle:string;startsOn:string;freeUntil:string|null;endsOn:string|null;status:string;freeAccessNow:boolean;lifecycleStatus:string};
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 const today=()=>new Date().toISOString().slice(0,10);
 export default function SubscriptionsPage(){
- const searchParams=useSearchParams();
  const [restaurants,setRestaurants]=useState<Restaurant[]>([]);const [plans,setPlans]=useState<Plan[]>([]);const [subscriptions,setSubscriptions]=useState<Subscription[]>([]);
- const [tenantId,setTenantId]=useState(()=>searchParams.get("tenantId")??"");const [planId,setPlanId]=useState("");const [billingCycle,setBillingCycle]=useState("MONTHLY");
+ const [tenantId,setTenantId]=useState("");const [planId,setPlanId]=useState("");const [billingCycle,setBillingCycle]=useState("MONTHLY");
  const [startsOn,setStartsOn]=useState(today);const [freeUntil,setFreeUntil]=useState("");const [endsOn,setEndsOn]=useState("");
+ useEffect(()=>{setTenantId(new URLSearchParams(window.location.search).get("tenantId")??"");},[]);
  const [loading,setLoading]=useState(true);const [saving,setSaving]=useState(false);const [cancellingId,setCancellingId]=useState<string|null>(null);const [error,setError]=useState("");const [message,setMessage]=useState("");
  useEffect(()=>{const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");const headers={Authorization:"Bearer "+token};
  Promise.all(["/api/v1/platform/restaurants","/api/v1/platform/plans","/api/v1/platform/subscriptions"].map(async path=>{const r=await fetch(API+path,{headers,signal:controller.signal,cache:"no-store"});const p=await r.json();if(!r.ok||!p.success||!Array.isArray(p.data))throw Error(p.message||"Unable to load subscriptions");return p.data;}))
