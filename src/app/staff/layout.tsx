@@ -24,6 +24,8 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const [name,setName]=useState("Team member");
  const [error,setError]=useState("");
  const [retry,setRetry]=useState(0);
+ const [showSlowMessage,setShowSlowMessage]=useState(false);
+ useEffect(()=>{if(!loading){setShowSlowMessage(false);return;}const timer=setTimeout(()=>setShowSlowMessage(true),3500);return()=>clearTimeout(timer);},[loading,retry]);
  const [features,setFeatures]=useState<Set<string>>(new Set());
  const [featuresReady,setFeaturesReady]=useState(false);
  useEffect(()=>{let active=true;
@@ -35,15 +37,14 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
    if(!memberships.length){setLoading(false);router.replace("/login");return;}
    const membership=memberships[0];setRestaurant(membership.tenantName||"Restaurant workspace");setName(user.name||"Team member");
    const headers={Authorization:"Bearer "+token};
-   const entitlementsResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",headers);
-   const entitlementsPayload=await entitlementsResponse.json();
+   const [entitlementsResponse,branchesResponse]=await Promise.all([fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",headers),fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers)]);
+   const entitlementsPayload=await entitlementsResponse.json().catch(()=>null);
    if(!entitlementsResponse.ok||!entitlementsPayload.success||!Array.isArray(entitlementsPayload.data?.features))
-    throw Error(entitlementsResponse.status===403?"Account disabled or access denied. Contact your restaurant administrator.":entitlementsPayload.message||"Cannot verify subscription features");
+    throw Error(entitlementsResponse.status===403?"Account disabled or access denied. Contact your restaurant administrator.":entitlementsPayload?.message||`Cannot verify subscription features (HTTP ${entitlementsResponse.status})`);
    const permitted=new Set<string>((entitlementsPayload.data.features as Feature[]).filter(f=>f.effectiveEnabled).map(f=>f.key));
    if(active){setFeatures(permitted);setFeaturesReady(true);}
-   const branchesResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers);
-   const branchesPayload=await branchesResponse.json();
-   if(!branchesResponse.ok||!branchesPayload.success)throw Error(branchesPayload.message||"Cannot load staff access");
+   const branchesPayload=await branchesResponse.json().catch(()=>null);
+   if(!branchesResponse.ok||!branchesPayload.success)throw Error(branchesPayload?.message||`Cannot load staff access (HTTP ${branchesResponse.status})`);
    const branch=branchesPayload.data?.[0];
    if(!branch)throw Error("No active branch assigned to this account.");
    const response=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/access?branchId="+branch.id,headers);
@@ -87,7 +88,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
  useEffect(()=>{if(loading||error||roleDisabled)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,roleDisabled,pathname,home,router]);
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
- if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p><p className="mt-2 text-xs text-[#77796f]">Connecting to restaurant server (up to 20 seconds)</p><button onClick={()=>{setLoading(true);setRetry(n=>n+1);}} className="mt-4 rounded-lg border bg-white px-4 py-2 text-sm">Retry connection</button></div></main>;
+ if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p>{showSlowMessage&&<><p className="mt-2 text-xs text-[#77796f]">The restaurant server is taking longer than usual to respond.</p><button onClick={()=>{setLoading(true);setRetry(n=>n+1);}} className="mt-4 rounded-lg border bg-white px-4 py-2 text-sm">Retry connection</button></>}</div></main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><div className="mt-5 flex justify-center gap-2"><button className="rounded-xl border px-4 py-2" onClick={()=>{setLoading(true);setError("");setRetry(n=>n+1);}}>Retry</button><button className="rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></div></main>;
  if(roleDisabled)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="text-lg font-bold">Account access disabled</h1><p className="mt-2 text-sm text-[#77796f]">Your {resolvedRole==="KITCHEN"?"Kitchen":"Waiter"} feature is not included in the restaurant&apos;s active plan. Contact your restaurant administrator.</p><button onClick={logout} className="mt-5 rounded-xl bg-[#1b241f] px-5 py-3 text-sm text-white">Return to login</button></div></main>;
  if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!links.some(item=>item.href===current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
