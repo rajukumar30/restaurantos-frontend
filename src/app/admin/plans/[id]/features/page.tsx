@@ -40,7 +40,16 @@ export default function PlanFeaturesPage(){
  }
  void load();return()=>controller.abort();
  },[id]);
- async function toggle(f:Feature){if(!editable||saving)return;setSaving(f.key);setError("");try{const token=localStorage.getItem("restaurantos_access_token");const r=await fetch(API+"/api/v1/platform/plans/"+encodeURIComponent(id)+"/features/"+encodeURIComponent(f.key),{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({included:!f.included})});const p=await r.json();if(!r.ok||!p.success)throw Error(p.message||"Unable to update feature");setFeatures(p.data);}catch(e){setError(e instanceof Error?e.message:"Unable to update feature");}finally{setSaving(null);}}
+ async function toggle(f:Feature){if(!editable||saving)return;
+  if(!f.included){
+   if(!f.available){setError(f.name+" is not yet available on the platform.");return;}
+   const missing=f.dependencies.filter(key=>!features.some(item=>item.key===key&&item.included));
+   if(missing.length){setError("To enable "+f.name+", first enable: "+missing.map(key=>features.find(item=>item.key===key)?.name??key).join(", ")+".");return;}
+  }else{
+   const dependent=features.filter(item=>item.included&&item.dependencies.includes(f.key));
+   if(dependent.length){setError("Before disabling "+f.name+", disable: "+dependent.map(item=>item.name).join(", ")+".");return;}
+  }
+  setSaving(f.key);setError("");try{const token=localStorage.getItem("restaurantos_access_token");const r=await fetch(API+"/api/v1/platform/plans/"+encodeURIComponent(id)+"/features/"+encodeURIComponent(f.key),{method:"PUT",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({included:!f.included})});const p=await r.json();if(!r.ok||!p.success)throw Error(p.message||p.detail||p.error||("Unable to update "+f.name+" (HTTP "+r.status+"). Check that prerequisites are enabled and this plan is editable."));setFeatures(p.data);}catch(e){setError(e instanceof Error?e.message:"Unable to update feature");}finally{setSaving(null);}}
  return <main className="px-4 py-6 sm:px-8 sm:py-10"><Link href="/admin/plans" className="text-sm font-semibold text-[#b85d3e]">← Plan catalog</Link><h1 className="mt-4 text-2xl font-extrabold">Plan features</h1><p className="mt-2 text-sm text-[#77796f]">Choose which features this subscription tier includes. Draft plans and archived plans without subscription history can change features. Active plans and archived plans with subscribers are protected.</p>
  {permissionError&&<p role="alert" className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">{permissionError}</p>}
  {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
