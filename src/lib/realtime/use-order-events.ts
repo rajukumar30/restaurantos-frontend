@@ -8,7 +8,7 @@ type Status="connecting"|"connected"|"disconnected";
 type EventEnvelope={eventId:string;type:string;tenantId:string;branchId:string;resourceId:string;occurredAt:string};
 
 /** Subscribes only to the current tenant/branch; reconnects and reloads the REST snapshot. */
-export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:()=>void){
+export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:()=>void,topic:"orders"|"service-requests"="orders"){
  const [status,setStatus]=useState<Status>("disconnected");
  const onChangeRef=useRef(onChange);
  useEffect(()=>{onChangeRef.current=onChange;},[onChange]);
@@ -27,7 +27,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
     if(!active)return;
     setStatus("connected");
     onChangeRef.current();
-    client.subscribe("/topic/tenants/"+tenantId+"/branches/"+branchId+"/orders",message=>{
+    client.subscribe("/topic/tenants/"+tenantId+"/branches/"+branchId+"/"+topic,message=>{
      if(!active)return;
      try{
       const event=JSON.parse(message.body) as EventEnvelope;
@@ -45,6 +45,6 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   setStatus("connecting");
   client.activate();
   return()=>{active=false;void client.deactivate();};
- },[token,tenantId,branchId]);
+ },[token,tenantId,branchId,topic]);
  return status;
 }
