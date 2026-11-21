@@ -14,7 +14,7 @@ const groups = [
   {label:"RESTAURANT MANAGEMENT",items:[
     {label:"Restaurants",href:"/admin/restaurants",icon:Building2,ready:true},
     {label:"Onboard restaurant",href:"/admin/restaurants/new",icon:PlusCircle,ready:true},
-    {label:"Feature management",href:"/admin/restaurants/features",icon:Settings2,ready:true},
+    {label:"Restaurant feature overrides",href:"/admin/restaurants/features",icon:Settings2,ready:true},
     {label:"Service workflows",href:"/admin/restaurants/service",icon:ChefHat,ready:true},
     {label:"Restaurant support lookup",href:"/admin/users",icon:Users,ready:true}
   ]},
@@ -29,6 +29,7 @@ const groups = [
     {label:"Notifications",href:"/admin/notifications",icon:Bell,ready:false}
   ]},
   {label:"PLATFORM",items:[
+    {label:"All platform features",href:"/admin/features",icon:SlidersHorizontal,ready:true},
     {label:"Platform Team & Access",href:"/admin/team",icon:Users,ready:true},
     {label:"Security & Audit Logs",href:"/admin/audit",icon:ScrollText,ready:true},
     {label:"Platform Settings",href:"/admin/settings",icon:SlidersHorizontal,ready:false}
