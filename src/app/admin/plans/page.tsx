@@ -32,8 +32,8 @@ export default function PlansPage(){
    const data=await r.json();
    if(!r.ok||!data.success)throw Error(data.message||"Unable to create plan version");
    setPlans(current=>[data.data,...current]);
-   setMessage("New editable draft created with the original pricing and features. Existing subscribers are unchanged.");
    edit(data.data);
+   setMessage("New editable draft created with the original pricing and features. Existing subscribers are unchanged.");
   }catch(e){setError(e instanceof Error?e.message:"Unable to create plan version");}
   finally{setVersioningId(null);}
  }
