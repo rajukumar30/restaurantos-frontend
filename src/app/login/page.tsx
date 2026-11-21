@@ -26,6 +26,8 @@ export default function LoginPage() {
     event.preventDefault();
     setError("");
     setLoading(true);
+    localStorage.removeItem("restaurantos_access_token");
+    localStorage.removeItem("restaurantos_user");
     try {
       const response = await fetch(`${API}/api/v1/auth/login`, {
         method: "POST",
@@ -37,8 +39,13 @@ export default function LoginPage() {
       if (raw.trim()) {
         try { payload = JSON.parse(raw); } catch { /* Upstream can return HTML. */ }
       }
-      if (!response.ok) throw new Error(payload?.message ?? ("Login failed (HTTP " + response.status + ")."));
+      if (!response.ok) {
+        const message=payload?.message||payload?.error||"";
+        throw new Error(response.status===403 ? "Account disabled or access denied. Contact your restaurant administrator." : (message||"Login failed (HTTP "+response.status+")."));
+      }
       if (!payload?.success || !payload.data) throw new Error("Login server returned an empty or invalid response. Please retry.");
+      if(!(payload.data.authorities??[]).includes("PLATFORM_ADMIN")&&!(payload.data.memberships??[]).length)
+        throw new Error("Account disabled or access denied. Contact your restaurant administrator.");
       localStorage.setItem("restaurantos_access_token", payload.data.accessToken);
       localStorage.setItem("restaurantos_user", JSON.stringify({
         userId: payload.data.userId,
