@@ -35,7 +35,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
    if(!memberships.length){setLoading(false);router.replace("/login");return;}
    const membership=memberships[0];setRestaurant(membership.tenantName||"Restaurant workspace");setName(user.name||"Team member");
    const headers={Authorization:"Bearer "+token};
-   const entitlementsResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/entitlements",headers);
+   const entitlementsResponse=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",headers);
    const entitlementsPayload=await entitlementsResponse.json();
    if(!entitlementsResponse.ok||!entitlementsPayload.success||!Array.isArray(entitlementsPayload.data?.features))
     throw Error(entitlementsResponse.status===403?"Account disabled or access denied. Contact your restaurant administrator.":entitlementsPayload.message||"Cannot verify subscription features");
