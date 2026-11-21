@@ -56,6 +56,37 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  }
  void initialize();return()=>{active=false;};
  },[router,retry]);
+ useEffect(()=>{
+  if(loading||error||!featuresReady)return;
+  let cancelled=false;
+  async function revalidate(){
+   const token=localStorage.getItem("restaurantos_access_token");
+   const raw=localStorage.getItem("restaurantos_user");
+   if(!token||!raw)return;
+   try{
+    const membership=JSON.parse(raw).memberships?.[0];
+    if(!membership?.tenantId)return;
+    const response=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",{Authorization:"Bearer "+token});
+    const payload=await response.json().catch(()=>null);
+    if(cancelled)return;
+    if(response.status===401||response.status===403){
+     setFeatures(new Set());
+     setError("Account disabled or access denied. Contact your restaurant administrator.");
+     return;
+    }
+    if(!response.ok||!payload?.success||!Array.isArray(payload.data?.features))return;
+    setFeatures(new Set<string>((payload.data.features as Feature[]).filter(f=>f.effectiveEnabled).map(f=>f.key)));
+   }catch{
+    // A temporary network interruption must not silently grant additional features.
+   }
+  }
+  const onFocus=()=>{void revalidate();};
+  const onVisibility=()=>{if(document.visibilityState==="visible")void revalidate();};
+  window.addEventListener("focus",onFocus);
+  document.addEventListener("visibilitychange",onVisibility);
+  const interval=window.setInterval(()=>{if(document.visibilityState==="visible")void revalidate();},30000);
+  return()=>{cancelled=true;window.removeEventListener("focus",onFocus);document.removeEventListener("visibilitychange",onVisibility);window.clearInterval(interval);};
+ },[loading,error,featuresReady]);
  const roles=access.roles.map(r=>r.toUpperCase());
  const resolvedRole=staffRole(roles);
  const home=roleHome(resolvedRole);
