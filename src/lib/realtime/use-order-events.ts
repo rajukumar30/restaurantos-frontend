@@ -17,24 +17,15 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   let active=true;
   let refreshTimer:ReturnType<typeof setTimeout>|undefined;
   let lastRefresh=0;
-  let refreshing=false;
-  let refreshQueued=false;
   const scheduleRefresh=()=>{
    if(!active)return;
    if(refreshTimer!==undefined)return;
    const delay=Math.max(0,350-(Date.now()-lastRefresh));
-   refreshTimer=setTimeout(async()=>{
+   refreshTimer=setTimeout(()=>{
     refreshTimer=undefined;
     if(!active)return;
     lastRefresh=Date.now();
-    if(refreshing){refreshQueued=true;return;}
-    refreshing=true;
-    try{
-     await Promise.resolve(onChangeRef.current());
-    }finally{
-     refreshing=false;
-     if(refreshQueued&&active){refreshQueued=false;scheduleRefresh();}
-    }
+    onChangeRef.current();
    },delay);
   };
   const refreshOnFocus=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
