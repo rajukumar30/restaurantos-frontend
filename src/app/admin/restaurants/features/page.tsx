@@ -15,6 +15,8 @@ export default function FeatureManagementPage() {
   const [tenantId,setTenantId] = useState("");
   const [restaurants,setRestaurants] = useState<{id:string;name:string;slug:string}[]>([]);
   const [features,setFeatures] = useState<Feature[]>([]);
+  const [planEligible,setPlanEligible] = useState(false);
+  const [planStatus,setPlanStatus] = useState("UNVERIFIED");
   const [loaded,setLoaded] = useState(false);
   const [loading,setLoading] = useState(false);
   const [saving,setSaving] = useState("");
@@ -44,8 +46,19 @@ export default function FeatureManagementPage() {
   }
   async function load() {
     if (!tenantId.trim() || !token) return;
-    setLoading(true);setError("");setNotice("");setLoaded(false);
-    try { setFeatures(await request("/api/v1/platform/restaurants/"+encodeURIComponent(tenantId.trim())+"/features"));setLoaded(true); }
+    setLoading(true);setError("");setNotice("");setLoaded(false);setPlanEligible(false);setPlanStatus("UNVERIFIED");
+    try {
+      const id=encodeURIComponent(tenantId.trim());
+      const [featureRows,entitlementResponse]=await Promise.all([
+        request("/api/v1/platform/restaurants/"+id+"/features"),
+        fetch(API+"/api/v1/platform/restaurants/"+id+"/entitlements",{headers:{Authorization:"Bearer "+token},cache:"no-store"})
+      ]);
+      const entitlement=await entitlementResponse.json();
+      if(!entitlementResponse.ok||!entitlement.success||!entitlement.data)throw new Error(entitlement.message||"Unable to verify subscription");
+      setPlanEligible(entitlement.data.accessEligible===true&&!!entitlement.data.planId);
+      setPlanStatus(entitlement.data.subscriptionStatus??"UNASSIGNED");
+      setFeatures(featureRows);setLoaded(true);
+    }
     catch(e) {setFeatures([]);setError(e instanceof Error?e.message:"Could not load restaurant");}
     finally {setLoading(false);}
   }
@@ -78,8 +91,9 @@ export default function FeatureManagementPage() {
       {error&&<p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</p>}
       {notice&&<p role="status" className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
       {loaded&&<div className="mt-5 space-y-5">
+        {!planEligible&&<div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>No active subscription plan ({planStatus.replaceAll("_"," ")}).</strong> All features are unavailable until a Free or paid plan is assigned and active. The switches below are locked. <Link className="font-bold underline" href={"/admin/restaurants/"+encodeURIComponent(tenantId)}>Manage restaurant subscription</Link></div>}
         <p className="text-xs text-[#77796f]">Changes save immediately. Unavailable integrations cannot be enabled. Feature dependencies are validated by the backend.</p>
-        {categories.map(category=><section key={category} className="panel overflow-hidden"><h2 className="border-b border-[#e9e5dc] px-5 py-4 font-bold">{category}</h2><div className="divide-y divide-[#e9e5dc]">{features.filter(f=>f.category===category).map(f=><div key={f.key} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><p className="text-sm font-bold">{f.name}</p><p className="mt-1 text-xs text-[#77796f]">{f.description}</p>{f.expiresAt&&<p className="mt-1 text-xs font-semibold text-amber-700">Override expires: {new Date(f.expiresAt).toLocaleString("en-IN")}</p>}{f.dependencies.length>0&&<p className="mt-1 text-[11px] text-[#77796f]">Requires: {f.dependencies.join(", ")}</p>}{!f.available&&<span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#a65a38]"><LockKeyhole size={12}/> Integration not configured</span>}</div><button type="button" role="switch" aria-label={f.name} aria-checked={f.enabled} onClick={()=>{setPending(f);setExpiry("");}} disabled={!f.available||!!saving} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${f.enabled?"bg-[#527a5b]":"bg-[#c6c7c0]"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${f.enabled?"left-6":"left-1"}`}/></button></div>)}</div></section>)}
+        {categories.map(category=><section key={category} className="panel overflow-hidden"><h2 className="border-b border-[#e9e5dc] px-5 py-4 font-bold">{category}</h2><div className="divide-y divide-[#e9e5dc]">{features.filter(f=>f.category===category).map(f=><div key={f.key} className="flex items-center justify-between gap-4 px-5 py-4"><div className="min-w-0"><p className="text-sm font-bold">{f.name}</p><p className="mt-1 text-xs text-[#77796f]">{f.description}</p>{f.expiresAt&&<p className="mt-1 text-xs font-semibold text-amber-700">Override expires: {new Date(f.expiresAt).toLocaleString("en-IN")}</p>}{f.dependencies.length>0&&<p className="mt-1 text-[11px] text-[#77796f]">Requires: {f.dependencies.join(", ")}</p>}{!f.available&&<span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#a65a38]"><LockKeyhole size={12}/> Integration not configured</span>}</div><button type="button" role="switch" aria-label={f.name} aria-checked={planEligible&&f.enabled} onClick={()=>{setPending(f);setExpiry("");}} disabled={!planEligible||!f.available||!!saving} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${planEligible&&f.enabled?"bg-[#527a5b]":"bg-[#c6c7c0]"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-all ${planEligible&&f.enabled?"left-6":"left-1"}`}/></button></div>)}</div></section>)}
         <Link href={"/admin/restaurants/service?tenantId="+encodeURIComponent(tenantId.trim())} className="inline-flex rounded-xl border border-[#e9e5dc] bg-white px-4 py-3 text-sm font-bold text-[#b85d3e]">Configure kitchen / waiter workflow</Link>
       </div>}
     </div>
