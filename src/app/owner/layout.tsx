@@ -2,13 +2,12 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {TrendingUp,MessageSquare,Tag,Heart,LayoutDashboard,ChefHat,UtensilsCrossed,Smartphone,Users,Menu,X,LogOut,Sparkles} from "lucide-react";
+import {TrendingUp,MessageSquare,Tag,Heart,LayoutDashboard,ChefHat,UtensilsCrossed,Smartphone,Users,Menu,X,LogOut,Sparkles,ShieldCheck} from "lucide-react";
 import "./owner.css";
 import {useSessionGuard,isSessionExpired,clearSessionAndRedirect} from "@/lib/session-guard";
-const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/analytics",label:"Analytics & reports",icon:TrendingUp},{href:"/owner/orders",label:"Orders & kitchen",icon:ChefHat},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:Smartphone},{href:"/owner/staff",label:"Team & access",icon:Users},{href:"/owner/feedback",label:"Customer feedback",icon:MessageSquare},{href:"/owner/promotions",label:"Discounts & offers",icon:Tag},{href:"/owner/customers",label:"Customers & loyalty",icon:Heart}];
+const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/analytics",label:"Analytics & reports",icon:TrendingUp},{href:"/owner/orders",label:"Orders & kitchen",icon:ChefHat},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:Smartphone},{href:"/owner/staff",label:"Team & access",icon:Users},{href:"/owner/feedback",label:"Customer feedback",icon:MessageSquare},{href:"/owner/promotions",label:"Discounts & offers",icon:Tag},{href:"/owner/customers",label:"Customers & loyalty",icon:Heart},{href:"/owner/features",label:"Plan & features",icon:ShieldCheck}];
 export default function OwnerLayout({children}:{children:React.ReactNode}){
  const pathname=usePathname();const router=useRouter();const [open,setOpen]=useState(false);const [authorized,setAuthorized]=useState(false);
- useSessionGuard(authorized);
  useSessionGuard(authorized);const [restaurant,setRestaurant]=useState("Owner portal");const branch="Restaurant workspace";
  useEffect(()=>{const token=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!token||isSessionExpired(token)){clearSessionAndRedirect(pathname);return;}if(!raw){router.replace("/login?next="+encodeURIComponent(pathname));return;}try{const user=JSON.parse(raw);const roles=JSON.stringify(user.memberships??[]).toUpperCase();if(!roles.includes("OWNER")&&!user.authorities?.includes("PLATFORM_ADMIN")){router.replace("/");return;}setRestaurant(user.memberships?.[0]?.tenantName||"Owner portal");setAuthorized(true);}catch{router.replace("/login");}},[pathname,router]);
  if(!authorized)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Opening owner workspace…</main>;
