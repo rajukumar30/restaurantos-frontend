@@ -15,7 +15,20 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
  useEffect(()=>{
   if(!token||!tenantId||!branchId){return;}
   let active=true;
-  const refreshOnFocus=()=>{if(document.visibilityState==="visible")onChangeRef.current();};
+  let refreshTimer:ReturnType<typeof setTimeout>|undefined;
+  let lastRefresh=0;
+  const scheduleRefresh=()=>{
+   if(!active)return;
+   if(refreshTimer!==undefined)return;
+   const delay=Math.max(0,350-(Date.now()-lastRefresh));
+   refreshTimer=setTimeout(()=>{
+    refreshTimer=undefined;
+    if(!active)return;
+    lastRefresh=Date.now();
+    onChangeRef.current();
+   },delay);
+  };
+  const refreshOnFocus=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
   window.addEventListener("focus",refreshOnFocus);
   document.addEventListener("visibilitychange",refreshOnFocus);
   const seen=new Set<string>();
@@ -29,7 +42,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
    onConnect:()=>{
     if(!active)return;
     setStatus("connected");
-    onChangeRef.current();
+    scheduleRefresh();
     client.subscribe("/topic/tenants/"+tenantId+"/branches/"+branchId+"/"+topic,message=>{
      if(!active)return;
      try{
@@ -37,7 +50,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
       if(event.tenantId!==tenantId||event.branchId!==branchId||!event.eventId||seen.has(event.eventId))return;
       seen.add(event.eventId);
       if(seen.size>500)seen.clear();
-      onChangeRef.current();
+      scheduleRefresh();
      }catch{/* Ignore malformed messages; the REST snapshot remains authoritative. */}
     });
    },
@@ -47,7 +60,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   });
   setStatus("connecting");
   client.activate();
-  return()=>{active=false;window.removeEventListener("focus",refreshOnFocus);document.removeEventListener("visibilitychange",refreshOnFocus);void client.deactivate();};
+  return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refreshOnFocus);document.removeEventListener("visibilitychange",refreshOnFocus);void client.deactivate();};
  },[token,tenantId,branchId,topic]);
  return status;
 }
