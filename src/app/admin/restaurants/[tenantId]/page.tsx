@@ -2,19 +2,32 @@
 import {useEffect,useState} from "react";
 import {useParams} from "next/navigation";
 import Link from "next/link";
-import {ArrowLeft,Settings2,Save} from "lucide-react";
+import {ArrowLeft,Settings2,Save,CreditCard} from "lucide-react";
 import BranchEditor from "@/components/platform-branch-editor";
 type Branch={id:string;name:string;branchCode:string;phone:string|null;status:string;timezone:string;address:string};
 type Owner={id:string;name:string;email:string;phone:string|null;status:string};
 type Profile={restaurant:Restaurant;branches:Branch[];owners:Owner[]};
+type Entitlements={planId:string|null;planName:string|null;subscriptionStatus:string;accessEligible:boolean;features:{key:string;effectiveEnabled:boolean}[]};
 type Restaurant={id:string;name:string;slug:string;subdomain:string;status:string;createdAt:string};
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 export default function RestaurantDetails(){
  const params=useParams();const id=String(params.tenantId??"");
+ const [entitlements,setEntitlements]=useState<Entitlements|null>(null);const [entitlementError,setEntitlementError]=useState("");
  const [data,setData]=useState<Restaurant|null>(null);const [profile,setProfile]=useState<Profile|null>(null);const [name,setName]=useState("");const [status,setStatus]=useState("ACTIVE");
  const [editing,setEditing]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [message,setMessage]=useState("");
  useEffect(()=>{if(!id)return;const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
  fetch(API+"/api/v1/platform/restaurants/"+encodeURIComponent(id)+"/profile",{headers:{Authorization:"Bearer "+token},signal:controller.signal}).then(async r=>{const p=await r.json();if(!r.ok||!p.success)throw Error(p.message||"Unable to load restaurant");return p.data as Profile;}).then(d=>{if(!controller.signal.aborted){setProfile(d);setData(d.restaurant);setName(d.restaurant.name);setStatus(d.restaurant.status);}}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});return()=>controller.abort();},[id]);
+ useEffect(()=>{
+  if(!id)return;
+  const controller=new AbortController();
+  const token=localStorage.getItem("restaurantos_access_token");
+  fetch(API+"/api/v1/platform/restaurants/"+encodeURIComponent(id)+"/entitlements",{
+   headers:{Authorization:"Bearer "+token},cache:"no-store",signal:controller.signal
+  }).then(async r=>{const p=await r.json();if(!r.ok||!p.success||!p.data)throw Error(p.message||"Unable to load subscription");return p.data as Entitlements;})
+   .then(v=>{if(!controller.signal.aborted)setEntitlements(v);})
+   .catch(e=>{if(!controller.signal.aborted)setEntitlementError(e instanceof Error?e.message:"Unable to load subscription");});
+  return()=>controller.abort();
+ },[id]);
  async function save(){if(!data||busy)return;if(!name.trim()){setError("Restaurant name is required");return;}
  if(status!==data.status&&!window.confirm(status==="INACTIVE"?"Mark this restaurant inactive? Confirm only after reviewing the impact on restaurant access.":"Reactivate this restaurant?"))return;
  setBusy(true);setError("");setMessage("");
@@ -28,6 +41,16 @@ export default function RestaurantDetails(){
   <section className="rounded-2xl border border-[#e8e5dd] bg-white p-4 sm:p-6"><h2 className="text-lg font-extrabold">Restaurant owner</h2>{profile.owners.length===0?<p className="mt-3 text-sm text-[#77796f]">No owner role found for this restaurant.</p>:profile.owners.map(owner=><div key={owner.id} className="mt-4 space-y-2 border-t pt-4 text-sm"><p><span className="text-[#77796f]">Name:</span> <strong>{owner.name}</strong></p><p><span className="text-[#77796f]">Email:</span> {owner.email}</p><p><span className="text-[#77796f]">Phone:</span> {owner.phone||"Not provided"}</p><p><span className="text-[#77796f]">Account:</span> {owner.status}</p></div>)}</section>
   <section className="rounded-2xl border border-[#e8e5dd] bg-white p-4 sm:p-6"><h2 className="text-lg font-extrabold">Branches & onboarding addresses</h2>{profile.branches.length===0?<p className="mt-3 text-sm text-[#77796f]">No branches found.</p>:profile.branches.map(branch=><BranchEditor key={branch.id} tenantId={id} branch={branch} onSaved={updated=>setProfile(current=>current?{...current,branches:current.branches.map(b=>b.id===updated.id?updated:b)}:current)}/>)}</section>
  </div>}
- <Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(id)} className="mt-4 flex items-center justify-between rounded-2xl border border-[#e8e5dd] bg-white p-5 text-sm font-bold text-[#b85d3e]"><span className="inline-flex items-center gap-2"><Settings2 size={18}/> Configure restaurant features</span><span>→</span></Link><p className="mt-4 text-xs leading-5 text-[#77796f]">Restaurant IDs are internal. You can navigate directly from the restaurant list without entering an ID.</p></>}
+ <section className="mt-4 rounded-2xl border border-[#e8e5dd] bg-white p-4 sm:p-6">
+  <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><CreditCard size={19}/> Subscription details</h2>
+  <Link href={"/admin/subscriptions?tenantId="+encodeURIComponent(id)} className="text-sm font-bold text-[#b85d3e]">{entitlements?.planId?"Manage subscription →":"Assign plan →"}</Link></div>
+  {entitlementError?<p role="alert" className="mt-3 text-sm text-red-700">{entitlementError}</p>:!entitlements?<p className="mt-3 text-sm text-[#77796f]">Loading subscription…</p>:<div className="mt-4 grid gap-4 sm:grid-cols-3">
+   <div><p className="text-xs text-[#77796f]">Assigned plan</p><p className="mt-1 font-bold">{entitlements.planName||"No plan assigned"}</p></div>
+   <div><p className="text-xs text-[#77796f]">Subscription status</p><p className="mt-1 font-bold">{entitlements.subscriptionStatus.replaceAll("_"," ")}</p></div>
+   <div><p className="text-xs text-[#77796f]">Available features</p><p className="mt-1 font-bold">{entitlements.features.filter(f=>f.effectiveEnabled).length} / {entitlements.features.length}</p></div>
+   {!entitlements.accessEligible&&<p className="text-sm font-semibold text-amber-700 sm:col-span-3">No active plan: restaurant features are unavailable until a Free or paid plan is assigned.</p>}
+  </div>}
+ </section>
+ <Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(id)} className="mt-4 flex items-center justify-between rounded-2xl border border-[#e8e5dd] bg-white p-5 text-sm font-bold text-[#b85d3e]"><span className="inline-flex items-center gap-2"><Settings2 size={18}/> View & manage features</span><span>→</span></Link><p className="mt-4 text-xs leading-5 text-[#77796f]">Restaurant IDs are internal. You can navigate directly from the restaurant list without entering an ID.</p></>}
  </main>;
 }
