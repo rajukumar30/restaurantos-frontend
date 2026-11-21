@@ -88,7 +88,7 @@ export default function GuestOrderPage(){
     }catch(e){setTrackingError(e instanceof Error?e.message:"Unable to check order status.");}
   },[receiptOrderId,qrToken]);
   useEffect(()=>{void refreshReceiptStatus();},[refreshReceiptStatus]);
-  const receiptRealtime=useGuestOrderEvents(qrToken,receiptOrderId,()=>{void refreshReceiptStatus();});
+  useGuestOrderEvents(qrToken,receiptOrderId,()=>{void refreshReceiptStatus();});
 
   const items=useMemo(()=>menu?.categories.flatMap(category=>category.items)??[],[menu]);
   const cartItems=items.filter(item=>(cart[item.id]??0)>0);
