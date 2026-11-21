@@ -8,7 +8,7 @@ type Status="connecting"|"connected"|"disconnected";
 type EventEnvelope={eventId:string;type:string;tenantId:string;branchId:string;resourceId:string;occurredAt:string};
 
 /** Subscribes only to the current tenant/branch; reconnects and reloads the REST snapshot. */
-export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:()=>void,topic:"orders"|"service-requests"="orders"){
+export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:()=>void,topic:"orders"|"service-requests"|"billing"="orders"){
  const [status,setStatus]=useState<Status>("disconnected");
  const onChangeRef=useRef(onChange);
  useEffect(()=>{onChangeRef.current=onChange;},[onChange]);
