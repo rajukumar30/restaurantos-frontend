@@ -9,7 +9,18 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
  useEffect(()=>{
   if(!qrToken||!orderId)return;
   let active=true;
-  const refresh=()=>{if(document.visibilityState==="visible")callback.current();};
+  let refreshTimer:ReturnType<typeof setTimeout>|undefined;
+  let lastRefresh=0;
+  const scheduleRefresh=()=>{
+   if(!active||refreshTimer!==undefined)return;
+   refreshTimer=setTimeout(()=>{
+    refreshTimer=undefined;
+    if(!active)return;
+    lastRefresh=Date.now();
+    scheduleRefresh();
+   },Math.max(0,350-(Date.now()-lastRefresh)));
+  };
+  const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
   window.addEventListener("focus",refresh);
   document.addEventListener("visibilitychange",refresh);
   const client=new Client({
@@ -22,9 +33,9 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
     if(!active)return;
     setStatus("connected");
     client.subscribe("/topic/guest/orders/"+orderId,()=>{
-     if(active)callback.current();
+     if(active)scheduleRefresh();
     });
-    callback.current();
+    scheduleRefresh();
    },
    onWebSocketClose:()=>{if(active)setStatus("disconnected");},
    onStompError:()=>{if(active)setStatus("disconnected");},
@@ -32,7 +43,7 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
   });
   setStatus("connecting");
   client.activate();
-  return()=>{active=false;window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
+  return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
  },[qrToken,orderId]);
  return status;
 }
