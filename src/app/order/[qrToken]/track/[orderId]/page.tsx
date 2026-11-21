@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Clock3, RefreshCw, Utensils, Home, BookOpen, ReceiptText, ArrowLeft } from "lucide-react";
@@ -26,32 +27,26 @@ export default function TrackOrderPage() {
   const accent=branding?.theme==="BOLD"?"#a54225":branding?.theme==="MINIMAL"?"#3d4540":"#243128";
   useEffect(()=>{fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}`).then(r=>r.json()).then(p=>{if(p.success)setBranding(p.data);}).catch(()=>{});},[qrToken]);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (!qrToken || !orderId) return;
-    let cancelled = false;
-    async function refresh() {
-      try {
-        const response = await fetch(
-          `${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`,
-          { cache: "no-store" }
-        );
-        const payload = await response.json();
-        if (!response.ok || !payload.success) throw new Error(payload.message ?? "Unable to load this order.");
-        if (!cancelled) {
-          setOrder(payload.data);
-          setError("");
-          setLastChecked(new Date());
-        }
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Unable to check your order.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    try {
+      const response = await fetch(
+        `${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders/${encodeURIComponent(orderId)}`,
+        {cache:"no-store"}
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.message ?? "Unable to load this order.");
+      setOrder(payload.data);
+      setError("");
+      setLastChecked(new Date());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to check your order.");
+    } finally {
+      setLoading(false);
     }
-    refresh();
-    const timer = window.setInterval(refresh, 10000);
-    return () => { cancelled = true; window.clearInterval(timer); };
-  }, [qrToken, orderId, refreshKey]);
+  },[qrToken,orderId]);
+  useEffect(()=>{void refresh();},[refresh,refreshKey]);
+  const realtimeStatus=useGuestOrderEvents(qrToken,orderId,()=>{void refresh();});
 
   const activeIndex = stages.findIndex(stage => stage.key === order?.status);
   const cancelled = order?.status === "CANCELLED";
@@ -83,7 +78,7 @@ export default function TrackOrderPage() {
               </ol>}
             {error && <p role="alert" className="mt-5 text-xs text-[#a7442a]">{error} Showing the last known status.</p>}
             <div className="mt-7 flex items-center justify-between border-t border-[#e9e5dc] pt-5">
-              <p className="text-xs text-[#99998f]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · Every 10 sec</p>
+              <p className="text-xs text-[#99998f]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · use Refresh"}</p>
               <button onClick={() => setRefreshKey(key => key + 1)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={14} /> Refresh</button>
             </div>
           </>}
