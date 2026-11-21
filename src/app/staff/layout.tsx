@@ -58,6 +58,8 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const roles=access.roles.map(r=>r.toUpperCase());
  const resolvedRole=staffRole(roles);
  const home=roleHome(resolvedRole);
+ const roleFeature=resolvedRole==="KITCHEN"?"KITCHEN_DISPLAY":resolvedRole==="WAITER"?"WAITER_DASHBOARD":null;
+ const roleDisabled=!!roleFeature&&!features.has(roleFeature);
  const manager=resolvedRole==="MANAGER";
  const kitchen=(resolvedRole==="KITCHEN"||manager)&&features.has("KITCHEN_DISPLAY");
  const waiter=(resolvedRole==="WAITER"||manager)&&features.has("WAITER_DASHBOARD");
@@ -83,10 +85,11 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const current=pathname==="/staff"||pathname==="/staff/"?home:pathname;
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
- useEffect(()=>{if(loading||error)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,pathname,home,router]);
+ useEffect(()=>{if(loading||error||roleDisabled)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,roleDisabled,pathname,home,router]);
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
  if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p><p className="mt-2 text-xs text-[#77796f]">Connecting to restaurant server (up to 20 seconds)</p><button onClick={()=>{setLoading(true);setRetry(n=>n+1);}} className="mt-4 rounded-lg border bg-white px-4 py-2 text-sm">Retry connection</button></div></main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><div className="mt-5 flex justify-center gap-2"><button className="rounded-xl border px-4 py-2" onClick={()=>{setLoading(true);setError("");setRetry(n=>n+1);}}>Retry</button><button className="rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></div></main>;
+ if(roleDisabled)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="text-lg font-bold">Account access disabled</h1><p className="mt-2 text-sm text-[#77796f]">Your {resolvedRole==="KITCHEN"?"Kitchen":"Waiter"} feature is not included in the restaurant's active plan. Contact your restaurant administrator.</p><button onClick={logout} className="mt-5 rounded-xl bg-[#1b241f] px-5 py-3 text-sm text-white">Return to login</button></div></main>;
  if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!links.some(item=>item.href===current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
  return <div className="min-h-screen bg-[#f7f7f4] text-[#20241f] lg:flex">
  {open&&<button aria-label="Close navigation" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
