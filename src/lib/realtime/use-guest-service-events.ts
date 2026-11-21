@@ -9,7 +9,18 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
  useEffect(()=>{
   if(!qrToken||!tableId)return;
   let active=true;
-  const refresh=()=>{if(document.visibilityState==="visible")latest.current();};
+  let refreshTimer:ReturnType<typeof setTimeout>|undefined;
+  let lastRefresh=0;
+  const scheduleRefresh=()=>{
+   if(!active||refreshTimer!==undefined)return;
+   refreshTimer=setTimeout(()=>{
+    refreshTimer=undefined;
+    if(!active)return;
+    lastRefresh=Date.now();
+    scheduleRefresh();
+   },Math.max(0,350-(Date.now()-lastRefresh)));
+  };
+  const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
   window.addEventListener("focus",refresh);
   document.addEventListener("visibilitychange",refresh);
   const client=new Client({
@@ -21,8 +32,8 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
    onConnect:()=>{
     if(!active)return;
     setStatus("connected");
-    client.subscribe("/topic/guest/tables/"+tableId+"/service-requests",()=>{if(active)latest.current();});
-    latest.current();
+    client.subscribe("/topic/guest/tables/"+tableId+"/service-requests",()=>{if(active)scheduleRefresh();});
+    scheduleRefresh();
    },
    onWebSocketClose:()=>{if(active)setStatus("disconnected");},
    onStompError:()=>{if(active)setStatus("disconnected");},
@@ -30,7 +41,7 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
   });
   setStatus("connecting");
   client.activate();
-  return()=>{active=false;window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
+  return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
  },[qrToken,tableId]);
  return status;
 }
