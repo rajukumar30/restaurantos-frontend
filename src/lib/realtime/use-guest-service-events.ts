@@ -17,7 +17,7 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
     refreshTimer=undefined;
     if(!active)return;
     lastRefresh=Date.now();
-    scheduleRefresh();
+    latest.current();
    },Math.max(0,350-(Date.now()-lastRefresh)));
   };
   const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
