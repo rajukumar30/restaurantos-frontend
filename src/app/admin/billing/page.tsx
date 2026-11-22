@@ -5,10 +5,12 @@ const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz
 type Plan={id:string;name:string;monthlyPricePaise:number;annualPricePaise:number};
 type Subscription={id:string;tenantId:string;restaurantName:string;planId:string;planName:string;billingCycle:string;status:string;lifecycleStatus:string;freeAccessNow:boolean;endsOn:string|null};
 type Envelope<T>={success:boolean;message?:string;data?:T};
+type Payment={id:string;tenantId:string;restaurantName:string;subscriptionId:string;amountPaise:number;currency:string;status:string;provider:string;providerPaymentId:string|null;createdAt:string};
 const money=(p:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR"}).format(p/100);
 export default function PlatformBillingPage(){
  const [plans,setPlans]=useState<Plan[]>([]),[subscriptions,setSubscriptions]=useState<Subscription[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[search,setSearch]=useState("");
+ const [payments,setPayments]=useState<Payment[]>([]),[paymentError,setPaymentError]=useState("");
  useEffect(()=>{const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
  if(!token){setError("Sign in to view the subscription overview.");setLoading(false);return;}
  Promise.all(["/api/v1/platform/plans","/api/v1/platform/subscriptions"].map(async path=>{
@@ -17,7 +19,12 @@ export default function PlatformBillingPage(){
   return body.data;
  })).then(([p,s])=>{if(!controller.signal.aborted){setPlans(p as Plan[]);setSubscriptions(s as Subscription[]);}})
  .catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:"Unable to load subscription overview");})
- .finally(()=>{if(!controller.signal.aborted)setLoading(false);});return()=>controller.abort();
+ .finally(()=>{if(!controller.signal.aborted)setLoading(false);});
+ fetch(API+"/api/v1/platform/billing/payments",{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:controller.signal})
+ .then(async r=>{const body:Envelope<Payment[]>=await r.json();if(!r.ok||!body.success||!Array.isArray(body.data))throw Error(body.message||"Unable to load payment ledger");return body.data;})
+ .then(data=>{if(!controller.signal.aborted)setPayments(data);})
+ .catch(e=>{if(!controller.signal.aborted)setPaymentError(e instanceof Error?e.message:"Payment ledger unavailable");});
+ return()=>controller.abort();
  },[]);
  const rows=useMemo(()=>subscriptions.filter(s=>s.status==="ACTIVE"&&(s.lifecycleStatus==="ACTIVE"||s.lifecycleStatus==="FREE_PERIOD")).map(s=>{
   const plan=plans.find(p=>p.id===s.planId);
@@ -42,6 +49,10 @@ export default function PlatformBillingPage(){
  <button type="button" onClick={exportReference} disabled={loading||!!error||visible.length===0} className="mt-4 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-40">Export price reference CSV</button>
  <input aria-label="Search restaurants" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search restaurant or plan" className="mt-4 w-full rounded-xl border p-3 text-sm"/>
  {loading?<p className="mt-4 text-sm">Loading…</p>:!error&&visible.length===0?<p className="mt-4 text-sm text-[#77796f]">No matching active subscriptions.</p>:<div className="mt-4 divide-y">{visible.map(s=><article key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><Link className="font-bold text-[#b85d3e]" href={"/admin/restaurants/"+encodeURIComponent(s.tenantId)}>{s.restaurantName}</Link><p className="mt-1 text-xs text-[#77796f]">{s.planName} · {s.billingCycle.toLowerCase()} · {s.lifecycleStatus.replaceAll("_"," ").toLowerCase()}{s.endsOn?" · Ends "+s.endsOn:""}</p></div><div className="text-right"><p className="font-bold">{s.rate===null?"Price unavailable":money(s.rate)}</p><p className="text-xs text-[#77796f]">Catalog price / {s.billingCycle.toLowerCase()}</p>{s.freeAccessNow&&<p className="text-xs font-bold text-green-700">Free access currently applies</p>}</div></article>)}</div>}
+ </section>
+ <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Subscription payment ledger</h2>
+ <p className="mt-1 text-xs text-[#77796f]">Latest 200 payment records. Payment status is recorded data, not independently verified gateway settlement.</p>
+ {paymentError?<p role="alert" className="mt-4 text-sm text-red-700">{paymentError}</p>:payments.length===0?<p className="mt-4 text-sm text-[#77796f]">No subscription payments recorded yet.</p>:<div className="mt-4 divide-y">{payments.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold">{p.restaurantName}</p><p className="text-xs text-[#77796f]">{p.provider} · {p.providerPaymentId||"No provider reference"} · {new Date(p.createdAt).toLocaleString("en-IN")}</p></div><div className="text-right"><p className="font-bold">{money(p.amountPaise)}</p><p className="text-xs font-bold">{p.status}</p></div></article>)}</div>}
  </section><p className="mt-4 text-xs text-[#77796f]">Restaurant order payments are separate from platform subscription payments. No subscription payment collection or reconciliation is implemented by this page.</p>
  </main>;
 }
