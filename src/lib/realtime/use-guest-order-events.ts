@@ -18,7 +18,7 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
     if(!active)return;
     lastRefresh=Date.now();
     callback.current();
-   },Math.max(0,350-(Date.now()-lastRefresh)));
+   },Math.max(0,100-(Date.now()-lastRefresh)));
   };
   const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
   window.addEventListener("focus",refresh);
@@ -26,7 +26,7 @@ export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>v
   const client=new Client({
    brokerURL:API.replace(/^http/,"ws").replace(/\/$/,"")+"/ws/realtime",
    connectHeaders:{"X-Guest-QR":qrToken},
-   reconnectDelay:3000,
+   reconnectDelay:1500,
    heartbeatIncoming:10000,
    heartbeatOutgoing:10000,
    onConnect:()=>{
