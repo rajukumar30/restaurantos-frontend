@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Plan={id:string;name:string;monthlyPricePaise:number;annualPricePaise:number};
@@ -12,6 +12,9 @@ export default function PlatformBillingPage(){
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[search,setSearch]=useState("");
  const [payments,setPayments]=useState<Payment[]>([]),[paymentError,setPaymentError]=useState("");
  const [selectedSubscription,setSelectedSubscription]=useState(""),[amount,setAmount]=useState(""),[submitting,setSubmitting]=useState(false),[recordMessage,setRecordMessage]=useState("");
+ const pendingAttempt=useRef<{fingerprint:string;key:string}|null>(null);
+ const [retryAvailable,setRetryAvailable]=useState(false);
+ function resetAttempt(){pendingAttempt.current=null;setRetryAvailable(false);setRecordMessage("");}
  useEffect(()=>{const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
  if(!token){setError("Sign in to view the subscription overview.");setLoading(false);return;}
  Promise.all(["/api/v1/platform/plans","/api/v1/platform/subscriptions"].map(async path=>{
@@ -35,24 +38,28 @@ export default function PlatformBillingPage(){
  const visible=rows.filter(s=>[s.restaurantName,s.planName].join(" ").toLowerCase().includes(search.toLowerCase()));
  async function recordPending(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();setRecordMessage("");setPaymentError("");
+  if(submitting)return;
   const selected=subscriptions.find(s=>s.id===selectedSubscription);
   const rupees=Number(amount);
   if(!selected||!Number.isFinite(rupees)||rupees<=0||!Number.isSafeInteger(Math.round(rupees*100))){setPaymentError("Choose a subscription and a valid positive amount.");return;}
   const amountPaise=Math.round(rupees*100);
   if(Math.abs(amountPaise/100-rupees)>0.000001){setPaymentError("Use at most two decimal places.");return;}
+  const fingerprint=`${selected.tenantId}:${selected.id}:${amountPaise}`;
+  if(pendingAttempt.current?.fingerprint!==fingerprint){pendingAttempt.current={fingerprint,key:crypto.randomUUID()};}
+  const idempotencyKey=pendingAttempt.current.key;
   setSubmitting(true);
   try{
    const token=localStorage.getItem("restaurantos_access_token");
-   const idempotencyKey=crypto.randomUUID();
    const response=await fetch(API+"/api/v1/platform/billing/payments/pending",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({tenantId:selected.tenantId,subscriptionId:selected.id,amountPaise,idempotencyKey})});
    const body:Envelope<Payment>=await response.json();
    if(!response.ok||!body.success||!body.data)throw Error(body.message||"Unable to create pending payment");
+   resetAttempt();
    setRecordMessage("Pending payment recorded. No money has been collected or verified.");
    setAmount("");
    const updated=await fetch(API+"/api/v1/platform/billing/payments",{headers:{"Authorization":"Bearer "+token},cache:"no-store"});
    const result:Envelope<Payment[]>=await updated.json();
    if(updated.ok&&result.success&&Array.isArray(result.data))setPayments(result.data);
-  }catch(err){setPaymentError(err instanceof Error?err.message:"Unable to create pending payment");}
+  }catch(err){setRetryAvailable(true);setPaymentError((err instanceof Error?err.message:"Unable to create pending payment")+" — Retry uses the same request key. Do not create another payment until its status is confirmed.");}
   finally{setSubmitting(false);}
  }
  function exportReference(){
@@ -75,9 +82,9 @@ export default function PlatformBillingPage(){
  </section>
  <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Record pending subscription payment</h2><p className="mt-1 text-xs text-[#77796f]">Administrative bookkeeping only. This does not charge the restaurant or confirm settlement.</p>
  <form onSubmit={recordPending} className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px_auto]">
- <select aria-label="Subscription" required value={selectedSubscription} onChange={e=>setSelectedSubscription(e.target.value)} className="min-w-0 rounded-xl border p-3 text-sm"><option value="">Select subscription</option>{subscriptions.map(s=><option key={s.id} value={s.id}>{s.restaurantName} · {s.planName} · {s.status}</option>)}</select>
- <input aria-label="Amount in rupees" required type="number" min="0.01" step="0.01" placeholder="Amount ₹" value={amount} onChange={e=>setAmount(e.target.value)} className="min-w-0 rounded-xl border p-3 text-sm"/>
- <button type="submit" disabled={submitting} className="rounded-xl bg-[#b85d3e] px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{submitting?"Recording…":"Record pending"}</button></form>{recordMessage&&<p role="status" className="mt-3 text-sm text-green-700">{recordMessage}</p>}</section>
+ <select aria-label="Subscription" required value={selectedSubscription} onChange={e=>{resetAttempt();setSelectedSubscription(e.target.value);}} className="min-w-0 rounded-xl border p-3 text-sm"><option value="">Select subscription</option>{subscriptions.map(s=><option key={s.id} value={s.id}>{s.restaurantName} · {s.planName} · {s.status}</option>)}</select>
+ <input aria-label="Amount in rupees" required type="number" min="0.01" step="0.01" placeholder="Amount ₹" value={amount} onChange={e=>{resetAttempt();setAmount(e.target.value);}} className="min-w-0 rounded-xl border p-3 text-sm"/>
+ <button type="submit" disabled={submitting} className="rounded-xl bg-[#b85d3e] px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{submitting?"Recording…":retryAvailable?"Retry same request":"Record pending"}</button></form>{recordMessage&&<p role="status" className="mt-3 text-sm text-green-700">{recordMessage}</p>}</section>
  <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Subscription payment ledger</h2>
  <p className="mt-1 text-xs text-[#77796f]">Latest 200 payment records. Payment status is recorded data, not independently verified gateway settlement.</p>
  {paymentError?<p role="alert" className="mt-4 text-sm text-red-700">{paymentError}</p>:payments.length===0?<p className="mt-4 text-sm text-[#77796f]">No subscription payments recorded yet.</p>:<div className="mt-4 divide-y">{payments.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold">{p.restaurantName}</p><p className="text-xs text-[#77796f]">{p.provider} · {p.providerPaymentId||"No provider reference"} · {new Date(p.createdAt).toLocaleString("en-IN")}</p></div><div className="text-right"><p className="font-bold">{money(p.amountPaise)}</p><p className="text-xs font-bold">{p.status}</p></div></article>)}</div>}
