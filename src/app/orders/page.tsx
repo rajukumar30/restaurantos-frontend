@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useOrderEvents } from "@/lib/realtime/use-order-events";
 import { usePathname, useRouter } from "next/navigation";
 
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Membership={tenantId:string;tenantName:string;roles:string};
 type Branch={id:string;name:string;branchCode:string};
 type Order={id:string;orderNumber:string;tableName:string;status:string;totalAmount:number;lineCount:number;itemCount:number;itemsSummary:string;createdAt:string};
