@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import { Bell, Minus, Plus, ShoppingBag, Utensils, Search, Clock3, List, Home, BookOpen, ReceiptText, UserRound, X, Check } from "lucide-react";
 import { useParams } from "next/navigation";
@@ -31,6 +31,7 @@ export default function GuestOrderPage(){
   const [showCart,setShowCart]=useState(false);
   const [orderNotes,setOrderNotes]=useState("");
   const [submitting,setSubmitting]=useState(false);
+  const submittingRef=useRef(false);
   const [orderError,setOrderError]=useState("");
   const [receipt,setReceipt]=useState<{orderId:string;orderNumber:string;totalAmount:number;tableName:string;status:string}|null>(null);
   const [trackingError,setTrackingError]=useState("");
@@ -149,20 +150,30 @@ export default function GuestOrderPage(){
     setAuthError("");setAuthOpen(false);if(count>0)setShowCart(true);
   }
   async function placeOrder(){
-    if(!menu||!count||submitting)return;
+    if(!menu||!count||submittingRef.current)return;
     const orderName=(profileName||authName).trim();
     const orderPhone=historyToken?historyPhone:authPhone;
     if(orderName.length<2||!/^[6-9][0-9]{9}$/.test(orderPhone)){setShowCart(false);setAuthName(orderName);setAuthPhone(orderPhone);setAuthError(orderName.length<2?"Please enter your name once to complete your profile.":"Enter a valid mobile number.");setAuthOpen(true);return;}
-    setSubmitting(true);setOrderError("");
+    submittingRef.current=true;setSubmitting(true);setOrderError("");
     try{
-      const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({customerName:orderName,customerPhone:"+91"+orderPhone,notes:orderNotes.trim()||null,items:cartItems.map(item=>({menuItemId:item.id,quantity:cart[item.id]}))})});
+      const body=JSON.stringify({customerName:orderName,customerPhone:"+91"+orderPhone,notes:orderNotes.trim()||null,items:cartItems.map(item=>({menuItemId:item.id,quantity:cart[item.id]}))});
+      // Reuse the same key after a timeout, so retrying cannot create a second order.
+      const pendingKey="restaurantos_pending_order_"+qrToken;
+      let idempotencyKey=crypto.randomUUID();
+      try{
+        const pending=JSON.parse(sessionStorage.getItem(pendingKey)||"null");
+        if(pending?.body===body && typeof pending.key==="string")idempotencyKey=pending.key;
+        sessionStorage.setItem(pendingKey,JSON.stringify({body,key:idempotencyKey}));
+      }catch{/* storage may be unavailable */}
+      const response=await fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}/orders`,{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":idempotencyKey},body});
       const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not place your order.");
       const placed={orderId:payload.data.orderId,orderNumber:payload.data.orderNumber,totalAmount:Number(payload.data.totalAmount),tableName:payload.data.tableName,status:payload.data.status,createdAt:new Date().toISOString()};
+      try{sessionStorage.removeItem("restaurantos_pending_order_"+qrToken);}catch{/* storage unavailable */}
       saveVisit(orderName,orderPhone);setProfileName(orderName);setAuthName(orderName);setAuthPhone(orderPhone);
       try{localStorage.setItem("restaurantos_guest_profile_"+qrToken,JSON.stringify({name:orderName,phone:orderPhone}));}catch{/* storage unavailable */}
       setReceipt(placed);setGuestOrders(current=>{const updated=[placed,...current.filter(o=>o.orderId!==placed.orderId)].slice(0,50);try{localStorage.setItem("restaurantos_guest_orders_"+qrToken,JSON.stringify(updated));}catch{/* storage unavailable */}return updated;});setTrackingError("");setCart({});setShowCart(false);setOrderNotes("");
     }catch(e){setOrderError(e instanceof Error?e.message:"Unable to place your order.");}
-    finally{setSubmitting(false);}
+    finally{submittingRef.current=false;setSubmitting(false);}
   }
 
   function signOutGuest(){setHistoryToken("");setVerifiedOrders([]);setHistoryChallenge("");setHistoryCode("");setHistoryError("");localStorage.removeItem("restaurantos_verified_"+qrToken);}
