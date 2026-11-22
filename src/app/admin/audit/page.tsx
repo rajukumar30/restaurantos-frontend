@@ -1,15 +1,14 @@
 "use client";
 import {useEffect,useState} from "react";
-import {useSearchParams} from "next/navigation";
 import {ShieldCheck,History} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Event={id:string;actorName:string;restaurantName:string;action:string;featureKey:string|null;oldValue:boolean|null;newValue:boolean|null;createdAt:string};
 type Restaurant={id:string;name:string};
 export default function AuditPage(){
- const params=useSearchParams();
  const [restaurants,setRestaurants]=useState<Restaurant[]>([]);
- const [tenantId,setTenantId]=useState(()=>params.get("tenantId")??"");
+ const [tenantId,setTenantId]=useState("");
  const [page,setPage]=useState(0);
+ useEffect(()=>{setTenantId(new URLSearchParams(window.location.search).get("tenantId")??"");},[]);
  const [events,setEvents]=useState<Event[]>([]);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
