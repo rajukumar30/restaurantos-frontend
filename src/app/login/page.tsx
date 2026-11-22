@@ -1,8 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowLeft, LockKeyhole, Mail, Utensils, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import Link from "next/link";
+import { LockKeyhole, Mail, Utensils, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {membershipRoles,staffRole,roleHome} from "../staff/role-routes";
 
@@ -85,8 +84,8 @@ export default function LoginPage() {
     </section>
     <section className="flex min-h-screen lg:min-h-0 flex-col px-5 py-6 sm:px-10 sm:py-10">
       <div className="mx-auto w-full max-w-md">
-        <div className="flex items-center justify-between gap-3 mb-8 lg:mb-14">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#77796f] hover:text-[#171916]"><ArrowLeft size={16}/> Back</Link>
+        <div className="flex items-center justify-end gap-3 mb-8 lg:mb-14">
+          
           <div className="lg:hidden flex items-center gap-2"><div className="brand-mark !h-9 !w-9 !rounded-xl">r.</div><span className="text-base font-bold">restaurant<span className="text-[#E56A42]">os</span></span></div>
         </div>
         <div className="rounded-[28px] border border-[#e8e1d5] bg-white p-6 shadow-[0_16px_50px_rgba(40,36,26,0.06)] sm:p-9">
