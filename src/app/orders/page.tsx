@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ChefHat, Clock3, RefreshCw, Search, Utensils } from "lucide-react";
 import Link from "next/link";
 import { useOrderEvents } from "@/lib/realtime/use-order-events";
@@ -30,6 +30,8 @@ export default function OrdersPage(){
   const [updating,setUpdating]=useState("");
   const [error,setError]=useState("");
   const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
+  const requestSequence=useRef(0);
+  const activeRequest=useRef<AbortController|null>(null);
 
   useEffect(()=>{
     const accessToken=localStorage.getItem("restaurantos_access_token")??"";
@@ -50,16 +52,21 @@ export default function OrdersPage(){
 
   const loadOrders=useCallback(async(showLoader=false)=>{
     if(!token||!tenantId||!branchId)return;
+    const sequence=++requestSequence.current;
+    activeRequest.current?.abort();
+    const controller=new AbortController();
+    activeRequest.current=controller;
     if(showLoader)setLoading(true);
     try{
-      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders?branchId="+branchId,{headers:{Authorization:"Bearer "+token},cache:"no-store"});
+      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders?branchId="+branchId,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:controller.signal});
       const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Unable to load orders.");
+      if(sequence!==requestSequence.current)return;
       setOrders(payload.data);setLastUpdated(new Date());setError("");
-    }catch(e){setError(e instanceof Error?e.message:"Unable to load orders.");}
-    finally{setLoading(false);}
+    }catch(e){if(sequence===requestSequence.current && !controller.signal.aborted)setError(e instanceof Error?e.message:"Unable to load orders.");}
+    finally{if(sequence===requestSequence.current){activeRequest.current=null;setLoading(false);}}
   },[token,tenantId,branchId]);
 
-  useEffect(()=>{if(!branchId)return;void loadOrders(true);},[branchId,loadOrders]);
+  useEffect(()=>{if(!branchId)return;void loadOrders(true);return()=>{requestSequence.current++;activeRequest.current?.abort();};},[branchId,loadOrders]);
   const realtimeStatus=useOrderEvents(token,tenantId,branchId,()=>{void loadOrders(false);});
   useEffect(()=>{if(!branchId||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void loadOrders(false);};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branchId,realtimeStatus,loadOrders]);
 
