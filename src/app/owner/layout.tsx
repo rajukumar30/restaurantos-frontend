@@ -2,12 +2,12 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {TrendingUp,MessageSquare,Tag,Heart,LayoutDashboard,ChefHat,UtensilsCrossed,Smartphone,Users,Menu,X,LogOut,Sparkles,ShieldCheck} from "lucide-react";
+import {TrendingUp,MessageSquare,Tag,Heart,LayoutDashboard,ChefHat,UtensilsCrossed,Smartphone,Users,Menu,X,LogOut,Sparkles,ShieldCheck,ReceiptText} from "lucide-react";
 import "./owner.css";
 import {useSessionGuard,isSessionExpired,clearSessionAndRedirect} from "@/lib/session-guard";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 const featureByRoute:Record<string,string>={"/owner/orders":"GUEST_ORDERING","/owner/tables":"QR_MENU"};
-const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/analytics",label:"Analytics & reports",icon:TrendingUp},{href:"/owner/orders",label:"Orders & kitchen",icon:ChefHat},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:Smartphone},{href:"/owner/staff",label:"Team & access",icon:Users},{href:"/owner/feedback",label:"Customer feedback",icon:MessageSquare},{href:"/owner/promotions",label:"Discounts & offers",icon:Tag},{href:"/owner/customers",label:"Customers & loyalty",icon:Heart},{href:"/owner/features",label:"Plan & features",icon:ShieldCheck}];
+const navigation=[{href:"/owner/",label:"Overview",icon:LayoutDashboard},{href:"/owner/analytics",label:"Analytics & reports",icon:TrendingUp},{href:"/owner/orders",label:"Orders & kitchen",icon:ChefHat},{href:"/owner/menu",label:"Menu management",icon:UtensilsCrossed},{href:"/owner/tables",label:"Tables & QR",icon:Smartphone},{href:"/owner/staff",label:"Team & access",icon:Users},{href:"/owner/feedback",label:"Customer feedback",icon:MessageSquare},{href:"/owner/promotions",label:"Discounts & offers",icon:Tag},{href:"/owner/customers",label:"Customers & loyalty",icon:Heart},{href:"/owner/features",label:"Plan & features",icon:ShieldCheck},{href:"/owner/billing",label:"Billing & invoices",icon:ReceiptText}];
 export default function OwnerLayout({children}:{children:React.ReactNode}){
  const pathname=usePathname();const router=useRouter();const [open,setOpen]=useState(false);const [authorized,setAuthorized]=useState(false);
  const [tenantId,setTenantId]=useState("");
