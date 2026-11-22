@@ -67,7 +67,25 @@ export default function OrdersPage(){
   },[token,tenantId,branchId]);
 
   useEffect(()=>{if(!branchId)return;void loadOrders(true);return()=>{requestSequence.current++;activeRequest.current?.abort();};},[branchId,loadOrders]);
-  const realtimeStatus=useOrderEvents(token,tenantId,branchId,()=>{void loadOrders(false);});
+  const refreshChangedOrder=useCallback(async(orderId?:string)=>{
+    if(!orderId){void loadOrders(false);return;}
+    try{
+      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders/"+encodeURIComponent(orderId)+"?branchId="+encodeURIComponent(branchId),{
+        headers:{Authorization:"Bearer "+token},cache:"no-store"
+      });
+      if(response.status===404){void loadOrders(false);return;}
+      const payload=await response.json();
+      if(!response.ok||!payload.success)throw new Error("Unable to refresh order");
+      const updated=payload.data as Order;
+      setOrders(current=>{
+        const index=current.findIndex(order=>order.id===updated.id);
+        if(index<0){void loadOrders(false);return current;}
+        return current.map(order=>order.id===updated.id?updated:order);
+      });
+      setLastUpdated(new Date());
+    }catch{void loadOrders(false);}
+  },[token,tenantId,branchId,loadOrders]);
+  const realtimeStatus=useOrderEvents(token,tenantId,branchId,refreshChangedOrder);
   useEffect(()=>{if(!branchId||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void loadOrders(false);};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branchId,realtimeStatus,loadOrders]);
 
   async function updateStatus(order:Order,status:string){
