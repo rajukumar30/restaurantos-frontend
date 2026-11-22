@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Building2, CheckCircle2, Store, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ export default function NewRestaurantPage() {
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}|null>(null);
   const [loading, setLoading] = useState(false);
+  const submittingRef = useRef(false);
 
   useEffect(() => {
     const accessToken = localStorage.getItem("restaurantos_access_token") ?? "";
@@ -34,6 +35,9 @@ export default function NewRestaurantPage() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Synchronous guard: a rapid double-click must not create two restaurant workspaces.
+    if (submittingRef.current || created) return;
+    submittingRef.current = true;
     setError("");
     setCreated(null);
     setLoading(true);
@@ -60,7 +64,7 @@ export default function NewRestaurantPage() {
       setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressLine1:"", addressLine2:"", landmark:"", city:"", state:"", postalCode:"", country:"India" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
-    } finally { setLoading(false); }
+    } finally { submittingRef.current = false; setLoading(false); }
   }
 
   if (!authorized) return <main className="min-h-screen grid place-items-center text-sm text-[#77796f]">Checking administrator access…</main>;
@@ -101,7 +105,7 @@ export default function NewRestaurantPage() {
             <Field label="Owner phone" value={form.ownerPhone} onChange={v=>update("ownerPhone",v)} placeholder="+91…"/>
           </div>
         </section>
-        <div className="flex justify-end"><button disabled={loading} className="primary-button !px-6 !py-3 disabled:opacity-60">{loading ? "Creating workspace…" : "Create restaurant workspace"}</button></div>
+        <div className="flex justify-end"><button disabled={loading || !!created} className="primary-button !px-6 !py-3 disabled:opacity-60">{loading ? "Creating workspace…" : created ? "Restaurant created" : "Create restaurant workspace"}</button></div>
       </form>
       <p className="text-[11px] text-[#99998f] mt-7 flex items-center gap-2"><Building2 size={13}/> Restaurant data is stored in a separate tenant and branch scope.</p>
     </div>
