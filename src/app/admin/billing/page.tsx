@@ -14,7 +14,8 @@ export default function PlatformBillingPage(){
  const [selectedSubscription,setSelectedSubscription]=useState(""),[amount,setAmount]=useState(""),[submitting,setSubmitting]=useState(false),[recordMessage,setRecordMessage]=useState("");
  const pendingAttempt=useRef<{fingerprint:string;key:string}|null>(null);
  const [retryAvailable,setRetryAvailable]=useState(false);
- function resetAttempt(){pendingAttempt.current=null;setRetryAvailable(false);setRecordMessage("");}
+ function resetAttempt(){pendingAttempt.current=null;sessionStorage.removeItem("restaurantos_pending_payment_attempt");setRetryAvailable(false);setRecordMessage("");}
+ useEffect(()=>{try{const saved=sessionStorage.getItem("restaurantos_pending_payment_attempt");if(saved){const attempt=JSON.parse(saved);if(typeof attempt.fingerprint==="string"&&typeof attempt.key==="string"){pendingAttempt.current=attempt;setRetryAvailable(true);}}}catch{sessionStorage.removeItem("restaurantos_pending_payment_attempt");}},[]);
  useEffect(()=>{const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
  if(!token){setError("Sign in to view the subscription overview.");setLoading(false);return;}
  Promise.all(["/api/v1/platform/plans","/api/v1/platform/subscriptions"].map(async path=>{
@@ -45,11 +46,22 @@ export default function PlatformBillingPage(){
   const amountPaise=Math.round(rupees*100);
   if(Math.abs(amountPaise/100-rupees)>0.000001){setPaymentError("Use at most two decimal places.");return;}
   const fingerprint=`${selected.tenantId}:${selected.id}:${amountPaise}`;
-  if(pendingAttempt.current?.fingerprint!==fingerprint){pendingAttempt.current={fingerprint,key:crypto.randomUUID()};}
+  if(pendingAttempt.current?.fingerprint!==fingerprint){pendingAttempt.current={fingerprint,key:crypto.randomUUID()};sessionStorage.setItem("restaurantos_pending_payment_attempt",JSON.stringify(pendingAttempt.current));}
   const idempotencyKey=pendingAttempt.current.key;
   setSubmitting(true);
   try{
    const token=localStorage.getItem("restaurantos_access_token");
+   const lookup=await fetch(API+"/api/v1/platform/billing/payments/by-key?idempotencyKey="+encodeURIComponent(idempotencyKey),{headers:{"Authorization":"Bearer "+token},cache:"no-store"});
+   if(lookup.ok){
+    const existing:Envelope<Payment>=await lookup.json();
+    if(existing.success&&existing.data){
+     if(existing.data.tenantId!==selected.tenantId||existing.data.subscriptionId!==selected.id||existing.data.amountPaise!==amountPaise)throw Error("Existing payment key belongs to different details. Contact support.");
+     resetAttempt();setRecordMessage("Existing payment attempt recovered; no duplicate created.");setAmount("");
+     const refreshed=await fetch(API+"/api/v1/platform/billing/payments",{headers:{"Authorization":"Bearer "+token},cache:"no-store"});
+     if(refreshed.ok){const result:Envelope<Payment[]>=await refreshed.json();if(result.success&&Array.isArray(result.data))setPayments(result.data);}
+     return;
+    }
+   }else if(lookup.status!==404){throw Error("Unable to verify whether a previous payment attempt exists. Please retry later.");}
    const response=await fetch(API+"/api/v1/platform/billing/payments/pending",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({tenantId:selected.tenantId,subscriptionId:selected.id,amountPaise,idempotencyKey})});
    const body:Envelope<Payment>=await response.json();
    if(!response.ok||!body.success||!body.data)throw Error(body.message||"Unable to create pending payment");
