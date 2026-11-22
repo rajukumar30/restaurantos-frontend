@@ -6,7 +6,8 @@ import {AlertCircle,CalendarClock,ReceiptText,RefreshCw} from "lucide-react";
 
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Invoice={id:string;restaurantName:string;periodStart:string;periodEnd:string;dueOn:string;amountPaise:number;status:string;currency:string};
-type Overview={invoices:Invoice[];unpaidPaise:number;overduePaise:number;dueSoonCount:number;asOf:string};
+type Reminder={id:string;reminderType:string;scheduledOn:string;dueOn:string;amountPaise:number;status:string};
+type Overview={reminders:Reminder[];invoices:Invoice[];unpaidPaise:number;overduePaise:number;dueSoonCount:number;asOf:string};
 type Membership={tenantId:string;tenantName:string};
 const money=(n:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR"}).format(n/100);
 export default function OwnerBillingPage(){
@@ -48,6 +49,7 @@ export default function OwnerBillingPage(){
    </div>
    {data.overduePaise>0&&<p role="status" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">You have overdue invoices. Please contact RestaurantOS support to arrange payment. No online payment gateway is connected yet.</p>}
    {data.dueSoonCount>0&&<p role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">A subscription invoice is due within the next 7 days.</p>}
+   {data.reminders?.length>0&&<section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="text-lg font-extrabold">Billing notifications</h2><p className="mt-1 text-xs text-[#77796f]">Subscription reminders recorded by RestaurantOS. Email delivery is not enabled yet.</p><div className="mt-3 divide-y">{data.reminders.filter(r=>r.status==="UNPAID").map(r=><div key={r.id} className="flex flex-wrap justify-between gap-3 py-3 text-sm"><span>{r.reminderType.replaceAll("_"," ").toLowerCase()} · Due {r.dueOn}</span><strong>{money(r.amountPaise)}</strong></div>)}</div></section>}
    <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="text-lg font-extrabold">Invoice history</h2><p className="mt-1 text-xs text-[#77796f]">Latest 200 invoices. Status is administrative data, not independently verified settlement.</p>
    {data.invoices.length===0?<p className="mt-5 text-sm text-[#77796f]">No invoices issued yet.</p>:<div className="mt-4 divide-y">{data.invoices.map(i=><article key={i.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-bold">{i.periodStart} — {i.periodEnd}</p><p className="mt-1 text-xs text-[#77796f]">Due {i.dueOn} · {i.status}</p></div><p className="font-extrabold">{money(i.amountPaise)}</p></article>)}</div>}</section>
    <p className="mt-4 text-xs text-[#77796f]">Balances reflect the latest 200 invoice records only, not a complete account statement. <Link href="/owner/features" className="font-bold text-[#b85d3e]">View plan & features</Link>.</p>
