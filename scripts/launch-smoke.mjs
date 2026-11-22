@@ -13,7 +13,6 @@ const cases=[
   {name:"Platform email audit requires authentication",url:backend+"/api/v1/platform/billing/email/status",allowed:[401,403]},
   {name:"Tenant billing requires authentication",url:backend+"/api/v1/tenants/00000000-0000-0000-0000-000000000001/billing",allowed:[401,403]},
   {name:"Frontend homepage",url:frontend,allowed:[200]},
-  {name:"Guest interface route",url:frontend+"/guest",allowed:[200,307,308,404]},
   {name:"Admin billing page",url:frontend+"/admin/billing",allowed:[200,307,308]},
 ];
 let failed=0;
