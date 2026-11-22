@@ -25,13 +25,21 @@ export default function PlatformBillingPage(){
   return {...s,rate};
  }),[subscriptions,plans]);
  const visible=rows.filter(s=>[s.restaurantName,s.planName].join(" ").toLowerCase().includes(search.toLowerCase()));
+ function exportReference(){
+  const quote=(v:unknown)=>`"${String(v??"").replaceAll('"','""')}"`;
+  const data=[["Restaurant","Plan","Billing cycle","Lifecycle","Catalog price (INR)","Free access","End date"],...visible.map(s=>[s.restaurantName,s.planName,s.billingCycle,s.lifecycleStatus,s.rate===null?"":(s.rate/100).toFixed(2),s.freeAccessNow?"YES":"NO",s.endsOn??""])];
+  const csv="\uFEFF"+data.map(r=>r.map(quote).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download="restaurantos-plan-price-reference.csv";document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ }
  return <main className="px-4 py-5 sm:px-8 sm:py-10">
  <p className="text-xs font-bold uppercase tracking-widest text-[#c15d3c]">Platform business</p>
  <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Billing overview</h1>
  <p className="mt-2 text-sm text-[#77796f]">Current subscription plan prices and access periods. This is not a payment ledger, invoice register, revenue report, or proof of collection.</p>
  <div className="mt-5 flex flex-wrap gap-3"><Link href="/admin/subscriptions" className="rounded-xl border bg-white px-4 py-3 text-sm font-bold">Manage subscriptions</Link><Link href="/admin/plans" className="rounded-xl border bg-white px-4 py-3 text-sm font-bold">Plan catalog</Link></div>
  {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
- <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Active subscription price reference</h2><p className="mt-1 text-xs text-[#77796f]">Prices come from the current plan catalog. Historical plan prices, discounts, taxes, refunds, and actual collections are not represented.</p>
+ <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Active subscription price reference</h2><p className="mt-1 text-xs text-[#77796f]">Prices come from the current plan catalog. Historical plan prices, discounts, taxes, refunds, and actual collections are not represented. Subscription API results are limited to the 200 most recent records; this is not a complete platform-wide financial report.</p>
+ <button type="button" onClick={exportReference} disabled={loading||!!error||visible.length===0} className="mt-4 rounded-xl border px-4 py-2 text-sm font-bold disabled:opacity-40">Export price reference CSV</button>
  <input aria-label="Search restaurants" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search restaurant or plan" className="mt-4 w-full rounded-xl border p-3 text-sm"/>
  {loading?<p className="mt-4 text-sm">Loading…</p>:!error&&visible.length===0?<p className="mt-4 text-sm text-[#77796f]">No matching active subscriptions.</p>:<div className="mt-4 divide-y">{visible.map(s=><article key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><Link className="font-bold text-[#b85d3e]" href={"/admin/restaurants/"+encodeURIComponent(s.tenantId)}>{s.restaurantName}</Link><p className="mt-1 text-xs text-[#77796f]">{s.planName} · {s.billingCycle.toLowerCase()} · {s.lifecycleStatus.replaceAll("_"," ").toLowerCase()}{s.endsOn?" · Ends "+s.endsOn:""}</p></div><div className="text-right"><p className="font-bold">{s.rate===null?"Price unavailable":money(s.rate)}</p><p className="text-xs text-[#77796f]">Catalog price / {s.billingCycle.toLowerCase()}</p>{s.freeAccessNow&&<p className="text-xs font-bold text-green-700">Free access currently applies</p>}</div></article>)}</div>}
  </section><p className="mt-4 text-xs text-[#77796f]">Restaurant order payments are separate from platform subscription payments. No subscription payment collection or reconciliation is implemented by this page.</p>
