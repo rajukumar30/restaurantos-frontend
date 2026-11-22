@@ -1,18 +1,17 @@
 "use client";
 import {useEffect,useState} from "react";
-import {useSearchParams} from "next/navigation";
 import Link from "next/link";
 import {Users,Search,ShieldCheck} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Restaurant={id:string;name:string};
 type Member={membershipId:string;userId:string;name:string;email:string;phone:string|null;accountStatus:string;membershipStatus:string;tenantId:string;restaurantName:string;roles:string;joinedAt:string};
 export default function UsersPage(){
- const params=useSearchParams();
  const [restaurants,setRestaurants]=useState<Restaurant[]>([]);
- const [tenantId,setTenantId]=useState(()=>params.get("tenantId")??"");
+ const [tenantId,setTenantId]=useState("");
  const [search,setSearch]=useState("");
  const [term,setTerm]=useState("");
  const [page,setPage]=useState(0);
+ useEffect(()=>{setTenantId(new URLSearchParams(window.location.search).get("tenantId")??"");},[]);
  const [rows,setRows]=useState<Member[]>([]);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
