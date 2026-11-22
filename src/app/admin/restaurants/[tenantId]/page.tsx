@@ -2,17 +2,18 @@
 import {useEffect,useState} from "react";
 import {useParams} from "next/navigation";
 import Link from "next/link";
-import {ArrowLeft,Settings2,Save,CreditCard} from "lucide-react";
+import {ArrowLeft,Settings2,Save,CreditCard,ChefHat,ShieldCheck,CheckCircle2,XCircle} from "lucide-react";
 import BranchEditor from "@/components/platform-branch-editor";
 type Branch={id:string;name:string;branchCode:string;phone:string|null;status:string;timezone:string;address:string};
 type Owner={id:string;name:string;email:string;phone:string|null;status:string};
 type Profile={restaurant:Restaurant;branches:Branch[];owners:Owner[]};
-type Entitlements={planId:string|null;planName:string|null;subscriptionStatus:string;accessEligible:boolean;features:{key:string;effectiveEnabled:boolean}[]};
+type Entitlements={planId:string|null;planName:string|null;subscriptionStatus:string;accessEligible:boolean;features:{key:string;name?:string;category?:string;effectiveEnabled:boolean;reason?:string;planIncluded?:boolean}[]};
 type Restaurant={id:string;name:string;slug:string;subdomain:string;status:string;createdAt:string};
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 export default function RestaurantDetails(){
  const params=useParams();const id=String(params.tenantId??"");
- const [entitlements,setEntitlements]=useState<Entitlements|null>(null);const [entitlementError,setEntitlementError]=useState("");
+ const [entitlements,setEntitlements]=useState<Entitlements|null>(null);
+ const [featureFilter,setFeatureFilter]=useState<"ALL"|"ENABLED"|"DISABLED">("ALL");const [entitlementError,setEntitlementError]=useState("");
  const [data,setData]=useState<Restaurant|null>(null);const [profile,setProfile]=useState<Profile|null>(null);const [name,setName]=useState("");const [status,setStatus]=useState("ACTIVE");
  const [editing,setEditing]=useState(false);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [message,setMessage]=useState("");
  useEffect(()=>{if(!id)return;const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
@@ -51,6 +52,13 @@ export default function RestaurantDetails(){
    {!entitlements.accessEligible&&<p className="text-sm font-semibold text-amber-700 sm:col-span-3">No active plan: restaurant features are unavailable until a Free or paid plan is assigned.</p>}
   </div>}
  </section>
- <Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(id)} className="mt-4 flex items-center justify-between rounded-2xl border border-[#e8e5dd] bg-white p-5 text-sm font-bold text-[#b85d3e]"><span className="inline-flex items-center gap-2"><Settings2 size={18}/> View & manage features</span><span>→</span></Link><p className="mt-4 text-xs leading-5 text-[#77796f]">Restaurant IDs are internal. You can navigate directly from the restaurant list without entering an ID.</p></>}
+ <section className="mt-4 rounded-2xl border border-[#e8e5dd] bg-white p-4 sm:p-6">
+  <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="inline-flex items-center gap-2 text-lg font-extrabold"><ShieldCheck size={19}/> Feature access overview</h2><p className="mt-1 text-xs text-[#77796f]">Effective access reflects plan inclusion, restaurant overrides and dependencies.</p></div><Link href={"/admin/restaurants/features?tenantId="+encodeURIComponent(id)} className="text-sm font-bold text-[#b85d3e]">Manage features →</Link></div>
+  {!entitlements?<p className="mt-4 text-sm text-[#77796f]">Loading effective features…</p>:<>
+   <div className="mt-4 flex flex-wrap gap-2"><button type="button" onClick={()=>setFeatureFilter("ALL")} className={`rounded-lg border px-3 py-2 text-xs font-bold ${featureFilter==="ALL"?"border-[#e56a42] bg-orange-50":""}`}>All ({entitlements.features.length})</button><button type="button" onClick={()=>setFeatureFilter("ENABLED")} className={`rounded-lg border px-3 py-2 text-xs font-bold ${featureFilter==="ENABLED"?"border-[#e56a42] bg-orange-50":""}`}>Enabled ({entitlements.features.filter(f=>f.effectiveEnabled).length})</button><button type="button" onClick={()=>setFeatureFilter("DISABLED")} className={`rounded-lg border px-3 py-2 text-xs font-bold ${featureFilter==="DISABLED"?"border-[#e56a42] bg-orange-50":""}`}>Unavailable ({entitlements.features.filter(f=>!f.effectiveEnabled).length})</button></div>
+   <div className="mt-3 grid gap-2 sm:grid-cols-2">{entitlements.features.filter(f=>featureFilter==="ALL"||(featureFilter==="ENABLED"?f.effectiveEnabled:!f.effectiveEnabled)).map(f=><div key={f.key} className="flex items-start gap-2 rounded-xl border p-3 text-sm">{f.effectiveEnabled?<CheckCircle2 size={17} className="mt-0.5 shrink-0 text-green-700"/>:<XCircle size={17} className="mt-0.5 shrink-0 text-slate-400"/>}<div className="min-w-0"><p className="font-semibold">{f.name||f.key.replaceAll("_"," ")}</p><p className="mt-1 text-xs text-[#77796f]">{f.effectiveEnabled?"Available":(f.reason||"Unavailable").replaceAll("_"," ").toLowerCase()}</p></div></div>)}</div>
+  </>}
+ </section>
+ <div className="mt-4 grid gap-3 sm:grid-cols-2"><Link href={"/admin/restaurants/service?tenantId="+encodeURIComponent(id)} className="flex items-center justify-between rounded-2xl border border-[#e8e5dd] bg-white p-5 text-sm font-bold text-[#b85d3e]"><span className="inline-flex items-center gap-2"><ChefHat size={18}/> Kitchen & waiter workflow</span><span>→</span></Link><Link href={"/admin/subscriptions?tenantId="+encodeURIComponent(id)} className="flex items-center justify-between rounded-2xl border border-[#e8e5dd] bg-white p-5 text-sm font-bold text-[#b85d3e]"><span className="inline-flex items-center gap-2"><CreditCard size={18}/> Subscription management</span><span>→</span></Link></div><p className="mt-4 text-xs leading-5 text-[#77796f]">Restaurant IDs are internal. You can navigate directly from the restaurant list without entering an ID.</p></>}
  </main>;
 }
