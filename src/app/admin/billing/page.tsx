@@ -11,6 +11,7 @@ export default function PlatformBillingPage(){
  const [plans,setPlans]=useState<Plan[]>([]),[subscriptions,setSubscriptions]=useState<Subscription[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[search,setSearch]=useState("");
  const [payments,setPayments]=useState<Payment[]>([]),[paymentError,setPaymentError]=useState("");
+ const [selectedSubscription,setSelectedSubscription]=useState(""),[amount,setAmount]=useState(""),[submitting,setSubmitting]=useState(false),[recordMessage,setRecordMessage]=useState("");
  useEffect(()=>{const controller=new AbortController();const token=localStorage.getItem("restaurantos_access_token");
  if(!token){setError("Sign in to view the subscription overview.");setLoading(false);return;}
  Promise.all(["/api/v1/platform/plans","/api/v1/platform/subscriptions"].map(async path=>{
@@ -32,6 +33,28 @@ export default function PlatformBillingPage(){
   return {...s,rate};
  }),[subscriptions,plans]);
  const visible=rows.filter(s=>[s.restaurantName,s.planName].join(" ").toLowerCase().includes(search.toLowerCase()));
+ async function recordPending(e:React.FormEvent<HTMLFormElement>){
+  e.preventDefault();setRecordMessage("");setPaymentError("");
+  const selected=subscriptions.find(s=>s.id===selectedSubscription);
+  const rupees=Number(amount);
+  if(!selected||!Number.isFinite(rupees)||rupees<=0||!Number.isSafeInteger(Math.round(rupees*100))){setPaymentError("Choose a subscription and a valid positive amount.");return;}
+  const amountPaise=Math.round(rupees*100);
+  if(Math.abs(amountPaise/100-rupees)>0.000001){setPaymentError("Use at most two decimal places.");return;}
+  setSubmitting(true);
+  try{
+   const token=localStorage.getItem("restaurantos_access_token");
+   const idempotencyKey=crypto.randomUUID();
+   const response=await fetch(API+"/api/v1/platform/billing/payments/pending",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({tenantId:selected.tenantId,subscriptionId:selected.id,amountPaise,idempotencyKey})});
+   const body:Envelope<Payment>=await response.json();
+   if(!response.ok||!body.success||!body.data)throw Error(body.message||"Unable to create pending payment");
+   setRecordMessage("Pending payment recorded. No money has been collected or verified.");
+   setAmount("");
+   const updated=await fetch(API+"/api/v1/platform/billing/payments",{headers:{"Authorization":"Bearer "+token},cache:"no-store"});
+   const result:Envelope<Payment[]>=await updated.json();
+   if(updated.ok&&result.success&&Array.isArray(result.data))setPayments(result.data);
+  }catch(err){setPaymentError(err instanceof Error?err.message:"Unable to create pending payment");}
+  finally{setSubmitting(false);}
+ }
  function exportReference(){
   const quote=(v:unknown)=>`"${String(v??"").replaceAll('"','""')}"`;
   const data=[["Restaurant","Plan","Billing cycle","Lifecycle","Catalog price (INR)","Free access","End date"],...visible.map(s=>[s.restaurantName,s.planName,s.billingCycle,s.lifecycleStatus,s.rate===null?"":(s.rate/100).toFixed(2),s.freeAccessNow?"YES":"NO",s.endsOn??""])];
@@ -50,6 +73,11 @@ export default function PlatformBillingPage(){
  <input aria-label="Search restaurants" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search restaurant or plan" className="mt-4 w-full rounded-xl border p-3 text-sm"/>
  {loading?<p className="mt-4 text-sm">Loading…</p>:!error&&visible.length===0?<p className="mt-4 text-sm text-[#77796f]">No matching active subscriptions.</p>:<div className="mt-4 divide-y">{visible.map(s=><article key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><Link className="font-bold text-[#b85d3e]" href={"/admin/restaurants/"+encodeURIComponent(s.tenantId)}>{s.restaurantName}</Link><p className="mt-1 text-xs text-[#77796f]">{s.planName} · {s.billingCycle.toLowerCase()} · {s.lifecycleStatus.replaceAll("_"," ").toLowerCase()}{s.endsOn?" · Ends "+s.endsOn:""}</p></div><div className="text-right"><p className="font-bold">{s.rate===null?"Price unavailable":money(s.rate)}</p><p className="text-xs text-[#77796f]">Catalog price / {s.billingCycle.toLowerCase()}</p>{s.freeAccessNow&&<p className="text-xs font-bold text-green-700">Free access currently applies</p>}</div></article>)}</div>}
  </section>
+ <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Record pending subscription payment</h2><p className="mt-1 text-xs text-[#77796f]">Administrative bookkeeping only. This does not charge the restaurant or confirm settlement.</p>
+ <form onSubmit={recordPending} className="mt-4 grid gap-3 sm:grid-cols-[1fr_160px_auto]">
+ <select aria-label="Subscription" required value={selectedSubscription} onChange={e=>setSelectedSubscription(e.target.value)} className="min-w-0 rounded-xl border p-3 text-sm"><option value="">Select subscription</option>{subscriptions.map(s=><option key={s.id} value={s.id}>{s.restaurantName} · {s.planName} · {s.status}</option>)}</select>
+ <input aria-label="Amount in rupees" required type="number" min="0.01" step="0.01" placeholder="Amount ₹" value={amount} onChange={e=>setAmount(e.target.value)} className="min-w-0 rounded-xl border p-3 text-sm"/>
+ <button type="submit" disabled={submitting} className="rounded-xl bg-[#b85d3e] px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{submitting?"Recording…":"Record pending"}</button></form>{recordMessage&&<p role="status" className="mt-3 text-sm text-green-700">{recordMessage}</p>}</section>
  <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Subscription payment ledger</h2>
  <p className="mt-1 text-xs text-[#77796f]">Latest 200 payment records. Payment status is recorded data, not independently verified gateway settlement.</p>
  {paymentError?<p role="alert" className="mt-4 text-sm text-red-700">{paymentError}</p>:payments.length===0?<p className="mt-4 text-sm text-[#77796f]">No subscription payments recorded yet.</p>:<div className="mt-4 divide-y">{payments.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold">{p.restaurantName}</p><p className="text-xs text-[#77796f]">{p.provider} · {p.providerPaymentId||"No provider reference"} · {new Date(p.createdAt).toLocaleString("en-IN")}</p></div><div className="text-right"><p className="font-bold">{money(p.amountPaise)}</p><p className="text-xs font-bold">{p.status}</p></div></article>)}</div>}
