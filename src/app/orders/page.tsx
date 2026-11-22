@@ -79,7 +79,7 @@ export default function OrdersPage(){
       const updated=payload.data as Order;
       setOrders(current=>{
         const index=current.findIndex(order=>order.id===updated.id);
-        if(index<0){void loadOrders(false);return current;}
+        if(index<0)return [updated,...current].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100);
         return current.map(order=>order.id===updated.id?updated:order);
       });
       setLastUpdated(new Date());
