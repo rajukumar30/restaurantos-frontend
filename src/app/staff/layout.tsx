@@ -89,7 +89,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  },[loading,error,featuresReady]);
  const roles=access.roles.map(r=>r.toUpperCase());
  const resolvedRole=staffRole(roles);
- const home=resolvedRole==="CASHIER"?"/staff/billing":roleHome(resolvedRole);
+ const home=roleHome(resolvedRole);
  const roleFeature=resolvedRole==="KITCHEN"?"KITCHEN_DISPLAY":resolvedRole==="WAITER"?"WAITER_DASHBOARD":null;
  const roleDisabled=!!roleFeature&&!features.has(roleFeature);
  const manager=resolvedRole==="MANAGER";
@@ -109,10 +109,10 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
    {href:"/staff/operations/waiter-history",label:"Order history",icon:History}]:[]),
   ...(manager&&access.permissions.includes("orders:manage")?[
    {href:"/staff/operations/manager-orders",label:"Live orders",icon:Clock3}]:[]),
-  ...(cashier&&access.permissions.includes("payments:read")&&home!=="/staff/billing"?[
+  ...(cashier&&access.permissions.includes("payments:read")?[
    {href:"/staff/operations/cashier-orders",label:"Billing queue",icon:ClipboardList}]:[])
  ];
- const links=[{href:home,label:resolvedRole==="KITCHEN"?"Kitchen display":resolvedRole==="WAITER"?"Table service":resolvedRole==="CASHIER"?"Billing & payments":"Dashboard",icon:resolvedRole==="KITCHEN"?ChefHat:resolvedRole==="WAITER"?UtensilsCrossed:resolvedRole==="CASHIER"?Wallet:LayoutDashboard},
+ const links=[{href:home,label:resolvedRole==="KITCHEN"?"Kitchen display":resolvedRole==="WAITER"?"Table service":resolvedRole==="CASHIER"?"Cashier overview":"Dashboard",icon:resolvedRole==="KITCHEN"?ChefHat:resolvedRole==="WAITER"?UtensilsCrossed:resolvedRole==="CASHIER"?Wallet:LayoutDashboard},
  ...navigation.slice(1).filter(item=>item.href!==home&&allowed(item.href)),...extra].filter(item=>featureAllowed(item.href)).filter((item,index,items)=>items.findIndex(other=>other.href===item.href||other.label===item.label)===index);
  const current=pathname==="/staff"||pathname==="/staff/"?home:pathname;
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
