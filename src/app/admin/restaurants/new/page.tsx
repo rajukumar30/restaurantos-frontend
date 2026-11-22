@@ -15,6 +15,8 @@ export default function NewRestaurantPage() {
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}|null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -37,6 +39,13 @@ export default function NewRestaurantPage() {
     event.preventDefault();
     // Synchronous guard: a rapid double-click must not create two restaurant workspaces.
     if (submittingRef.current || created) return;
+    if (form.ownerPassword !== confirmPassword) { setError("Owner passwords do not match."); return; }
+    if (form.restaurantName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").length > 63) {
+      setError("Use a shorter restaurant name for its URL (maximum 63 characters)."); return;
+    }
+    if (form.country.trim().toLowerCase() === "india" && !/^[1-9][0-9]{5}$/.test(form.postalCode.trim())) {
+      setError("Enter a valid six-digit Indian PIN code."); return;
+    }
     submittingRef.current = true;
     setError("");
     setCreated(null);
@@ -47,7 +56,7 @@ export default function NewRestaurantPage() {
       const response = await fetch(`${API}/api/v1/platform/restaurants`, {
         method:"POST",
         headers:{"Content-Type":"application/json", Authorization:`Bearer ${token}`},
-        body:JSON.stringify({...details,addressJson}),
+        body:JSON.stringify({...details,restaurantName:details.restaurantName.trim(),branchName:details.branchName.trim(),ownerName:details.ownerName.trim(),ownerEmail:details.ownerEmail.trim().toLowerCase(),ownerPhone:details.ownerPhone.trim()||null,branchPhone:details.branchPhone.trim()||null,addressJson}),
       });
       const raw = await response.text();
       let payload: {success?:boolean;message?:string;data?:{tenantId:string;branchId:string;slug:string;subdomain:string;restaurantUrl:string}} | null = null;
@@ -61,6 +70,7 @@ export default function NewRestaurantPage() {
       if (!payload?.success || !payload.data) throw new Error("The server returned an empty or unexpected response. Check Render logs and confirm whether the restaurant was created before retrying.");
 
       setCreated(payload.data);
+      setConfirmPassword("");
       setForm({ restaurantName:"", branchName:"Main branch", ownerName:"", ownerEmail:"", ownerPassword:"", ownerPhone:"", branchPhone:"", addressLine1:"", addressLine2:"", landmark:"", city:"", state:"", postalCode:"", country:"India" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -72,7 +82,7 @@ export default function NewRestaurantPage() {
   return <main className="min-h-screen bg-[#f7f4ec]">
     <div className="mx-auto max-w-4xl px-5 py-9 sm:px-8 sm:py-12">
 
-      <div className="mb-8"><div className="eyebrow">Platform / Restaurants</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Onboard a restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Create a restaurant workspace, its first branch and the owner account in one step.</p></div>
+      <div className="mb-8"><div className="eyebrow">Platform / Restaurants</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Onboard a restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Create the workspace and owner login now. Configure features and billing after creation—PAN and GSTIN are not required to start.</p></div>
       {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><Link className="mt-3 inline-block rounded-lg bg-[#315d39] px-3 py-2 text-xs font-semibold text-white" href={"/admin/restaurants/service?tenantId="+created.tenantId}>Configure service workflow</Link><p className="mt-2 text-xs">Workspace slug: <strong>{created.slug}</strong></p><p className="text-xs mt-1">The owner can sign in at <strong>/login</strong> on the current RestaurantOS Vercel domain using the email and password you set.</p><p className="text-xs mt-1">Restaurant-specific subdomains will be activated later, after a custom domain is configured.</p></div>}
       {error && <div role="alert" className="mb-6 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
       <form onSubmit={submit} className="space-y-6">
@@ -101,9 +111,12 @@ export default function NewRestaurantPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Owner full name" value={form.ownerName} onChange={v=>update("ownerName",v)} placeholder="Full name" required/>
             <Field label="Owner email" type="email" value={form.ownerEmail} onChange={v=>update("ownerEmail",v)} placeholder="owner@restaurant.com" required/>
-            <Field label="Temporary password" type="password" value={form.ownerPassword} onChange={v=>update("ownerPassword",v)} placeholder="At least 12 characters" required minLength={12}/>
+            <Field label="Temporary password" type={showPassword?"text":"password"} value={form.ownerPassword} onChange={v=>update("ownerPassword",v)} placeholder="At least 12 characters" required minLength={12}/>
+            <Field label="Confirm password" type={showPassword?"text":"password"} value={confirmPassword} onChange={setConfirmPassword} placeholder="Repeat the temporary password" required minLength={12}/>
             <Field label="Owner phone" value={form.ownerPhone} onChange={v=>update("ownerPhone",v)} placeholder="+91…"/>
           </div>
+          <label className="mt-4 flex items-center gap-2 text-xs text-[#55584f]"><input type="checkbox" checked={showPassword} onChange={event=>setShowPassword(event.target.checked)}/> Show passwords</label>
+          <p className="mt-3 text-xs text-[#77796f]">Use a unique temporary password and share it with the owner securely. PAN, GSTIN and FSSAI details can be collected separately when needed.</p>
         </section>
         <div className="flex justify-end"><button disabled={loading || !!created} className="primary-button !px-6 !py-3 disabled:opacity-60">{loading ? "Creating workspace…" : created ? "Restaurant created" : "Create restaurant workspace"}</button></div>
       </form>
