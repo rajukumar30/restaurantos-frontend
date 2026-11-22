@@ -8,7 +8,7 @@ type Status="connecting"|"connected"|"disconnected";
 type EventEnvelope={eventId:string;type:string;tenantId:string;branchId:string;resourceId:string;occurredAt:string};
 
 /** Subscribes only to the current tenant/branch; reconnects and reloads the REST snapshot. */
-export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:()=>void,topic:"orders"|"service-requests"|"billing"="orders"){
+export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:(resourceId?:string)=>void,topic:"orders"|"service-requests"|"billing"="orders"){
  const [status,setStatus]=useState<Status>("disconnected");
  const onChangeRef=useRef(onChange);
  useEffect(()=>{onChangeRef.current=onChange;},[onChange]);
@@ -17,7 +17,9 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   let active=true;
   let refreshTimer:ReturnType<typeof setTimeout>|undefined;
   let lastRefresh=0;
-  const scheduleRefresh=()=>{
+  let pendingResourceId:string|undefined;
+  const scheduleRefresh=(resourceId?:string)=>{
+   if(resourceId)pendingResourceId=pendingResourceId && pendingResourceId!==resourceId?"":resourceId;
    if(!active)return;
    if(refreshTimer!==undefined)return;
    const delay=Math.max(0,100-(Date.now()-lastRefresh));
@@ -25,7 +27,9 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
     refreshTimer=undefined;
     if(!active)return;
     lastRefresh=Date.now();
-    onChangeRef.current();
+    const resourceId=pendingResourceId;
+    pendingResourceId=undefined;
+    onChangeRef.current(resourceId||undefined);
    },delay);
   };
   const refreshOnFocus=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
@@ -52,7 +56,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
       seen.add(event.eventId);
       seenQueue.push(event.eventId);
       if(seenQueue.length>500)seen.delete(seenQueue.shift()!);
-      scheduleRefresh();
+      scheduleRefresh(event.resourceId);
      }catch{/* Ignore malformed messages; the REST snapshot remains authoritative. */}
     });
    },
