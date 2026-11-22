@@ -25,7 +25,7 @@ const groups = [
   ]},
   {label:"OPERATIONS",items:[
     {label:"System Monitoring",href:"/admin/monitoring",icon:Activity,ready:true},
-    {label:"Support Center",href:"/admin/support",icon:Headphones,ready:false},
+    {label:"Support Center",href:"/admin/support",icon:Headphones,ready:true},
     {label:"Notifications",href:"/admin/notifications",icon:Bell,ready:false}
   ]},
   {label:"PLATFORM",items:[
