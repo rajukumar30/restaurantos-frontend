@@ -11,6 +11,7 @@ export default function PlatformBillingPage(){
  const [plans,setPlans]=useState<Plan[]>([]),[subscriptions,setSubscriptions]=useState<Subscription[]>([]);
  const [loading,setLoading]=useState(true),[error,setError]=useState(""),[search,setSearch]=useState("");
  const [payments,setPayments]=useState<Payment[]>([]),[paymentError,setPaymentError]=useState("");
+ const [closingPayment,setClosingPayment]=useState<string|null>(null);
  const [selectedSubscription,setSelectedSubscription]=useState(""),[amount,setAmount]=useState(""),[submitting,setSubmitting]=useState(false),[recordMessage,setRecordMessage]=useState("");
  const pendingAttempt=useRef<{fingerprint:string;key:string}|null>(null);
  const [retryAvailable,setRetryAvailable]=useState(false);
@@ -37,6 +38,19 @@ export default function PlatformBillingPage(){
   return {...s,rate};
  }),[subscriptions,plans]);
  const visible=rows.filter(s=>[s.restaurantName,s.planName].join(" ").toLowerCase().includes(search.toLowerCase()));
+ async function closePending(payment:Payment){
+  if(payment.status!=="PENDING"||payment.provider!=="MANUAL"||closingPayment)return;
+  if(!window.confirm("Mark this manual payment attempt as FAILED? This does not refund or reverse any real payment."))return;
+  setClosingPayment(payment.id);setPaymentError("");
+  try{
+   const token=localStorage.getItem("restaurantos_access_token");
+   const response=await fetch(API+"/api/v1/platform/billing/payments/"+encodeURIComponent(payment.id)+"/mark-failed",{method:"POST",headers:{Authorization:"Bearer "+token}});
+   const body:Envelope<unknown>=await response.json();
+   if(!response.ok||!body.success)throw Error(body.message||"Unable to close payment attempt");
+   setPayments(prev=>prev.map(p=>p.id===payment.id?{...p,status:"FAILED"}:p));
+  }catch(err){setPaymentError(err instanceof Error?err.message:"Unable to close payment attempt");}
+  finally{setClosingPayment(null);}
+ }
  async function recordPending(e:React.FormEvent<HTMLFormElement>){
   e.preventDefault();setRecordMessage("");setPaymentError("");
   if(submitting)return;
@@ -99,7 +113,7 @@ export default function PlatformBillingPage(){
  <button type="submit" disabled={submitting} className="rounded-xl bg-[#b85d3e] px-4 py-3 text-sm font-bold text-white disabled:opacity-40">{submitting?"Recording…":retryAvailable?"Retry same request":"Record pending"}</button></form>{recordMessage&&<p role="status" className="mt-3 text-sm text-green-700">{recordMessage}</p>}</section>
  <section className="mt-6 rounded-2xl border bg-white p-5"><h2 className="font-bold">Subscription payment ledger</h2>
  <p className="mt-1 text-xs text-[#77796f]">Latest 200 payment records. Payment status is recorded data, not independently verified gateway settlement.</p>
- {paymentError?<p role="alert" className="mt-4 text-sm text-red-700">{paymentError}</p>:payments.length===0?<p className="mt-4 text-sm text-[#77796f]">No subscription payments recorded yet.</p>:<div className="mt-4 divide-y">{payments.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold">{p.restaurantName}</p><p className="text-xs text-[#77796f]">{p.provider} · {p.providerPaymentId||"No provider reference"} · {new Date(p.createdAt).toLocaleString("en-IN")}</p></div><div className="text-right"><p className="font-bold">{money(p.amountPaise)}</p><p className="text-xs font-bold">{p.status}</p></div></article>)}</div>}
+ {paymentError?<p role="alert" className="mt-4 text-sm text-red-700">{paymentError}</p>:payments.length===0?<p className="mt-4 text-sm text-[#77796f]">No subscription payments recorded yet.</p>:<div className="mt-4 divide-y">{payments.map(p=><article key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3"><div><p className="text-sm font-bold">{p.restaurantName}</p><p className="text-xs text-[#77796f]">{p.provider} · {p.providerPaymentId||"No provider reference"} · {new Date(p.createdAt).toLocaleString("en-IN")}</p></div><div className="text-right"><p className="font-bold">{money(p.amountPaise)}</p><p className="text-xs font-bold">{p.status}</p>{p.status==="PENDING"&&p.provider==="MANUAL"&&<button type="button" disabled={closingPayment!==null} onClick={()=>closePending(p)} className="mt-2 rounded-lg border px-2 py-1 text-xs disabled:opacity-40">{closingPayment===p.id?"Closing…":"Mark failed"}</button>}</div></article>)}</div>}
  </section><p className="mt-4 text-xs text-[#77796f]">Restaurant order payments are separate from platform subscription payments. No subscription payment collection or reconciliation is implemented by this page.</p>
  </main>;
 }
