@@ -13,6 +13,7 @@ type Subscription = {
   freeAccessNow: boolean;
   endsOn: string | null;
   planName: string;
+  restaurantName?: string;
 };
 type Envelope = { success: boolean; message?: string; data?: Subscription[] };
 
@@ -42,6 +43,16 @@ export default function SubscriptionHealth() {
     return () => controller.abort();
   }, []);
 
+  const expiringRows = useMemo(() => {
+    if (!rows) return [];
+    const now = new Date();
+    const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    return rows.filter(r => r.status === "ACTIVE" && r.lifecycleStatus === "ACTIVE" && !!r.endsOn && (() => {
+      const end = Date.parse(r.endsOn + "T00:00:00Z");
+      return Number.isFinite(end) && end >= today && end <= today + 7 * 86400000;
+    })()).sort((a,b) => (a.endsOn??"").localeCompare(b.endsOn??""));
+  }, [rows]);
+
   const summary = useMemo(() => {
     if (!rows) return null;
     const current = rows.filter(r => r.status === "ACTIVE");
@@ -49,15 +60,9 @@ export default function SubscriptionHealth() {
       active: current.filter(r => r.lifecycleStatus === "ACTIVE").length,
       free: current.filter(r => r.freeAccessNow).length,
       expired: current.filter(r => r.lifecycleStatus === "EXPIRED").length,
-      expiring: current.filter(r => {
-        if (!r.endsOn || r.lifecycleStatus !== "ACTIVE") return false;
-        const end = Date.parse(r.endsOn + "T00:00:00Z");
-        const now = new Date();
-        const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-        return end >= today && end <= today + 7 * 86400000;
-      }).length
+      expiring: expiringRows.length
     };
-  }, [rows]);
+  }, [rows, expiringRows]);
 
   return <section className="mt-5 rounded-2xl border border-[#e8e5dd] bg-white p-5 shadow-sm sm:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -79,5 +84,6 @@ export default function SubscriptionHealth() {
             <p className="mt-2 text-2xl font-extrabold tabular-nums">{value.toLocaleString("en-IN")}</p>
           </div>)}
       </div>}
+    {summary && <div className="mt-5 border-t pt-4"><h3 className="text-sm font-extrabold">Subscriptions ending within 7 days</h3><p className="mt-1 text-xs text-[#77796f]">Review these subscriptions before access expires. This is a review queue, not an automatic renewal or payment collection.</p>{expiringRows.length===0?<p className="mt-3 text-sm text-[#77796f]">No active subscriptions ending in the next 7 days.</p>:<div className="mt-3 divide-y">{expiringRows.slice(0,10).map(r=><div key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><div><Link href={"/admin/restaurants/"+encodeURIComponent(r.tenantId)} className="font-bold text-[#b85d3e]">{r.restaurantName||"Restaurant "+r.tenantId.slice(0,8)}</Link><p className="mt-1 text-xs text-[#77796f]">{r.planName} · Ends {r.endsOn}</p></div><Link href={"/admin/subscriptions?tenantId="+encodeURIComponent(r.tenantId)} className="rounded-lg border px-3 py-2 text-xs font-bold">Review subscription</Link></div>)}{expiringRows.length>10&&<p className="py-3 text-xs text-[#77796f]">Showing 10 of {expiringRows.length}. Open subscriptions for the full directory.</p>}</div>}</div>}
   </section>;
 }
