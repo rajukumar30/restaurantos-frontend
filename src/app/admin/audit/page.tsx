@@ -11,6 +11,15 @@ export default function AuditPage(){
  const [events,setEvents]=useState<Event[]>([]);
  const [loading,setLoading]=useState(true);
  const [error,setError]=useState("");
+ const [actionFilter,setActionFilter]=useState("");
+ const visibleEvents=events.filter(e=>e.action.toLowerCase().includes(actionFilter.trim().toLowerCase()));
+ function exportCurrentPage(){
+  const quote=(v:unknown)=>`"${String(v??"").replaceAll('"','""')}"`;
+  const lines=[["Timestamp","Actor","Restaurant","Action","Feature","Old value","New value"],...visibleEvents.map(e=>[e.createdAt,e.actorName,e.restaurantName,e.action,e.featureKey??"",e.oldValue??"",e.newValue??""])];
+  const csv="\uFEFF"+lines.map(row=>row.map(quote).join(",")).join("\r\n");
+  const url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  const a=document.createElement("a");a.href=url;a.download=`restaurantos-audit-page-${page+1}.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+ }
  useEffect(()=>{
   const token=localStorage.getItem("restaurantos_access_token");
   if(!token)return;
@@ -35,8 +44,9 @@ export default function AuditPage(){
   <div className="mb-6"><p className="text-xs font-bold uppercase tracking-widest text-[#c15d3c]">Platform security</p><h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">Audit logs</h1><p className="mt-2 text-sm text-[#77796f]">Review administrative changes across restaurants. This history is read-only.</p></div>
   <section className="rounded-2xl border border-[#e8e5dd] bg-white p-4 sm:p-6">
    <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><ShieldCheck size={20} className="text-[#c15d3c]"/><h2 className="font-bold">Administrative activity</h2></div><select aria-label="Filter by restaurant" value={tenantId} onChange={e=>{setTenantId(e.target.value);setPage(0);}} className="max-w-full rounded-xl border bg-white px-3 py-2 text-sm"><option value="">All restaurants</option>{restaurants.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+   <div className="mt-4 flex flex-wrap items-center gap-3"><input aria-label="Filter loaded audit actions" value={actionFilter} onChange={e=>setActionFilter(e.target.value)} placeholder="Filter actions on this page" className="min-w-0 flex-1 rounded-xl border p-3 text-sm"/><button type="button" disabled={loading||visibleEvents.length===0} onClick={exportCurrentPage} className="rounded-xl border px-4 py-3 text-sm font-bold disabled:opacity-40">Export visible CSV</button></div><p className="mt-2 text-xs text-[#77796f]">Action filtering and CSV export apply only to the currently loaded page, not the complete audit history.</p>
    {error&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
-   {loading?<p role="status" className="mt-6 text-sm text-[#77796f]">Loading audit history…</p>:!error&&events.length===0?<p className="mt-6 text-sm text-[#77796f]">No audit events found for this selection.</p>:<div className="mt-5 divide-y divide-[#eee9e0]">{events.map(e=><article key={e.id} className="flex gap-3 py-4"><span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#fff1e9] text-[#c15d3c]"><History size={17}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap justify-between gap-2"><p className="break-words text-sm font-bold">{e.action.replaceAll("_"," ")}</p><time className="text-xs text-[#858a80]">{new Date(e.createdAt).toLocaleString("en-IN")}</time></div><p className="mt-1 text-xs text-[#77796f]">{e.actorName} · {e.restaurantName}</p>{e.featureKey&&<p className="mt-1 text-xs text-[#77796f]">Feature: {e.featureKey.replaceAll("_"," ")} · {String(e.oldValue)} → {String(e.newValue)}</p>}</div></article>)}</div>}
+   {loading?<p role="status" className="mt-6 text-sm text-[#77796f]">Loading audit history…</p>:!error&&visibleEvents.length===0?<p className="mt-6 text-sm text-[#77796f]">No audit events found for this selection.</p>:<div className="mt-5 divide-y divide-[#eee9e0]">{visibleEvents.map(e=><article key={e.id} className="flex gap-3 py-4"><span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[#fff1e9] text-[#c15d3c]"><History size={17}/></span><div className="min-w-0 flex-1"><div className="flex flex-wrap justify-between gap-2"><p className="break-words text-sm font-bold">{e.action.replaceAll("_"," ")}</p><time className="text-xs text-[#858a80]">{new Date(e.createdAt).toLocaleString("en-IN")}</time></div><p className="mt-1 text-xs text-[#77796f]">{e.actorName} · {e.restaurantName}</p>{e.featureKey&&<p className="mt-1 text-xs text-[#77796f]">Feature: {e.featureKey.replaceAll("_"," ")} · {String(e.oldValue)} → {String(e.newValue)}</p>}</div></article>)}</div>}
    <div className="mt-5 flex items-center justify-between gap-2 border-t pt-4"><button type="button" disabled={page===0||loading} onClick={()=>setPage(p=>p-1)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40">Previous</button><span className="text-xs text-[#77796f]">Page {page+1}</span><button type="button" disabled={loading||events.length<25} onClick={()=>setPage(p=>p+1)} className="rounded-lg border px-3 py-2 text-sm disabled:opacity-40">Next</button></div>
   </section>
  </main>;
