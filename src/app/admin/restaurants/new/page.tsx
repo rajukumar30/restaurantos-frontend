@@ -18,6 +18,36 @@ export default function NewRestaurantPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState("");
   const submittingRef = useRef(false);
+  const [pinLookup, setPinLookup] = useState<"idle"|"loading"|"found"|"not-found">("idle");
+  const suggestedSlug = form.restaurantName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const reservedSubdomains = ["www","admin","api","app","support","login","mail","status","docs"];
+  const subdomainPreview = reservedSubdomains.includes(suggestedSlug) ? "restaurant-"+suggestedSlug : suggestedSlug;
+  useEffect(() => {
+    const pin = form.postalCode.trim();
+    if (form.country.trim().toLowerCase() !== "india" || !/^[1-9][0-9]{5}$/.test(pin)) {
+      setPinLookup("idle");
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setPinLookup("loading");
+      try {
+        const response = await fetch("https://api.postalpincode.in/pincode/"+encodeURIComponent(pin),{signal:controller.signal});
+        if (!response.ok) throw new Error("Postal lookup unavailable");
+        const records: {Status?:string;PostOffice?:Array<{District?:string;State?:string}>}[] = await response.json();
+        const location = records[0]?.PostOffice?.[0];
+        if (records[0]?.Status !== "Success" || !location?.District || !location?.State) throw new Error("PIN code not found");
+        if (!controller.signal.aborted) {
+          setForm(current => current.postalCode.trim()===pin
+            ? {...current,city:location.District!,state:location.State!} : current);
+          setPinLookup("found");
+        }
+      } catch {
+        if (!controller.signal.aborted) setPinLookup("not-found");
+      }
+    },350);
+    return () => {clearTimeout(timer);controller.abort();};
+  },[form.postalCode,form.country]);
 
   useEffect(() => {
     const accessToken = localStorage.getItem("restaurantos_access_token") ?? "";
@@ -83,7 +113,7 @@ export default function NewRestaurantPage() {
     <div className="mx-auto max-w-4xl px-5 py-9 sm:px-8 sm:py-12">
 
       <div className="mb-8"><div className="eyebrow">Platform / Restaurants</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Onboard a restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Create the workspace and owner login now. Configure features and billing after creation—PAN and GSTIN are not required to start.</p></div>
-      {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><Link className="mt-3 inline-block rounded-lg bg-[#315d39] px-3 py-2 text-xs font-semibold text-white" href={"/admin/restaurants/service?tenantId="+created.tenantId}>Configure service workflow</Link><p className="mt-2 text-xs">Workspace slug: <strong>{created.slug}</strong></p><p className="text-xs mt-1">The owner can sign in at <strong>/login</strong> on the current RestaurantOS Vercel domain using the email and password you set.</p><p className="text-xs mt-1">Restaurant-specific subdomains will be activated later, after a custom domain is configured.</p></div>}
+      {created && <div role="status" className="mb-6 rounded-2xl border border-[#cfe0ce] bg-[#edf5eb] p-4 text-sm text-[#315d39]"><div className="flex items-center gap-2 font-bold"><CheckCircle2 size={17}/> Restaurant workspace created</div><Link className="mt-3 inline-block rounded-lg bg-[#315d39] px-3 py-2 text-xs font-semibold text-white" href={"/admin/restaurants/service?tenantId="+created.tenantId}>Configure service workflow</Link><p className="mt-2 text-xs">Workspace slug: <strong>{created.slug}</strong><span className="block mt-1">Reserved subdomain: <strong>{created.subdomain}</strong></span></p><p className="text-xs mt-1">The owner can sign in at <strong>/login</strong> on the current RestaurantOS Vercel domain using the email and password you set.</p><p className="text-xs mt-1">The subdomain is reserved but is not a working URL until a custom domain and wildcard routing are configured. For now, use the current Vercel domain.</p></div>}
       {error && <div role="alert" className="mb-6 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
       <form onSubmit={submit} className="space-y-6">
         <section className="panel p-5 sm:p-7"><div className="flex items-center gap-3 mb-6"><div className="h-10 w-10 rounded-xl bg-[#f5eee5] text-[#d56a45] grid place-items-center"><Store size={18}/></div><div><h2 className="font-bold">Restaurant details</h2><p className="text-xs text-[#99998f] mt-1">The tenant workspace shared by all branches.</p></div></div>
@@ -92,6 +122,11 @@ export default function NewRestaurantPage() {
             <Field label="First branch name" value={form.branchName} onChange={v=>update("branchName",v)} placeholder="e.g. Sector 62" required/>
             <Field label="Branch phone" value={form.branchPhone} onChange={v=>update("branchPhone",v)} placeholder="+91…"/>
 
+          </div>
+          <div className="mt-4 rounded-xl border border-[#eee2d0] bg-[#fff9ef] p-4 text-xs text-[#685e4f]">
+            <strong>Restaurant subdomain preview</strong>
+            <p className="mt-1 font-mono break-all">{subdomainPreview || "your-restaurant"}.restaurantos.com</p>
+            <p className="mt-1">Preview only. The backend reserves an available subdomain when you create the restaurant; duplicates may receive a suffix. This URL will work only after you purchase and configure the domain.</p>
           </div>
           <div className="mt-7 border-t border-[#eeeae2] pt-6">
             <h3 className="font-semibold text-sm mb-1">Branch address</h3>
@@ -104,6 +139,7 @@ export default function NewRestaurantPage() {
               <Field label="State / Province" value={form.state} onChange={v=>update("state",v)} placeholder="e.g. Karnataka" required/>
               <Field label="PIN / Postal code" value={form.postalCode} onChange={v=>update("postalCode",v)} placeholder="e.g. 560001" required/>
               <Field label="Country" value={form.country} onChange={v=>update("country",v)} placeholder="e.g. India" required/>
+              {form.country.trim().toLowerCase()==="india" && <p role="status" className="sm:col-span-2 text-xs text-[#77796f]">{pinLookup==="loading"?"Looking up PIN code…":pinLookup==="found"?"State and district filled from PIN code. Verify the city and edit if needed.":pinLookup==="not-found"?"Could not find this PIN code. Enter city and state manually.":"Enter a six-digit PIN code to fill state and district automatically."}</p>}
             </div>
           </div>
         </section>
