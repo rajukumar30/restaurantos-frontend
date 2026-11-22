@@ -21,7 +21,7 @@ const groups = [
   {label:"BUSINESS",items:[
     {label:"Plan Catalog",href:"/admin/plans",icon:Package,ready:true},
     {label:"Restaurant Subscriptions",href:"/admin/subscriptions",icon:Wallet,ready:true},
-    {label:"Billing & Payments",href:"/admin/billing",icon:Wallet,ready:false}
+    {label:"Billing overview",href:"/admin/billing",icon:Wallet,ready:true}
   ]},
   {label:"OPERATIONS",items:[
     {label:"System Monitoring",href:"/admin/monitoring",icon:Activity,ready:false},
