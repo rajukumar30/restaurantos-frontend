@@ -2,9 +2,10 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
 import {useRouter} from "next/navigation";
 import StaffServiceRequests from "@/components/staff-service-requests";
+import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {ChefHat,RefreshCw,Clock3,ShieldCheck,Wallet,Users,UtensilsCrossed,BarChart3} from "lucide-react";
 
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"http://localhost:8080";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
 type Membership={tenantId:string;tenantName:string;roles?:string};
 type Branch={id:string;name:string};
 type Order={id:string;orderNumber:string;tableName:string;status:string;totalAmount:number;itemsSummary:string;createdAt:string;itemCount:number};
@@ -27,7 +28,9 @@ export default function StaffDashboard(){
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token");const raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login?next=%2Fstaff%2Fdashboard");return;}try{const user=JSON.parse(raw);const list:Membership[]=user.memberships||[];if(!list.length){router.replace("/login");return;}setToken(t);setMemberships(list);setTenantId(list[0].tenantId);}catch{router.replace("/login");}},[router]);
  useEffect(()=>{if(!token||!tenantId)return;let live=true;setBranchId("");setBranches([]);setAccess({roles:[],permissions:[]});setOrders([]);setLoading(true);jsonFetch();async function jsonFetch(){try{const b=await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranchId(b[0]?.id||"");if(!b.length)setLoading(false);}}catch(e){if(live){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}}}return()=>{live=false;};},[token,tenantId]);
  const load=useCallback(async()=>{if(!token||!tenantId||!branchId)return;try{const headers={Authorization:"Bearer "+token};const [a,o]=await Promise.all([fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/access?branchId="+branchId,{headers}),fetch(API+"/api/v1/tenants/"+tenantId+"/orders?branchId="+branchId,{headers,cache:"no-store"})]);setAccess(await json(a));setOrders(await json(o));setError("");setUpdated(new Date());}catch(e){setError(e instanceof Error?e.message:"Unable to load orders");}finally{setLoading(false);}},[token,tenantId,branchId]);
- useEffect(()=>{if(!branchId)return;setLoading(true);void load();const timer=window.setInterval(()=>void load(),10000);return()=>window.clearInterval(timer);},[branchId,load]);
+ useEffect(()=>{if(!branchId)return;setLoading(true);void load();},[branchId,load]);
+ const realtimeStatus=useOrderEvents(token,tenantId,branchId,load);
+ useEffect(()=>{if(!branchId||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void load();};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branchId,realtimeStatus,load]);
  const roles=access.roles.map(r=>r.toUpperCase());
  const role=roles.includes("MANAGER")||roles.includes("OWNER")?"MANAGER":roles.includes("KITCHEN")?"KITCHEN":roles.includes("WAITER")?"WAITER":roles.includes("CASHIER")?"CASHIER":"STAFF";
  const kitchen=role==="KITCHEN"&&access.permissions.includes("kitchen:operate");
@@ -47,7 +50,7 @@ export default function StaffDashboard(){
 
  return <main className="min-h-screen bg-[#f7f7f4] text-[#20241f]">
   
-  <div className="mx-auto max-w-7xl px-5 py-8 sm:px-9"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#d36a45]">RestaurantOS / Staff</p><h1 className="mt-2 flex items-center gap-3 text-3xl font-extrabold"><RoleIcon size={27}/>{config.title}</h1><p className="mt-2 text-sm text-[#788078]">{config.subtitle} · Refreshes every 10 seconds</p></div><button onClick={()=>void load()} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm"><RefreshCw size={16}/>Refresh</button></div>
+  <div className="mx-auto max-w-7xl px-5 py-8 sm:px-9"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#d36a45]">RestaurantOS / Staff</p><h1 className="mt-2 flex items-center gap-3 text-3xl font-extrabold"><RoleIcon size={27}/>{config.title}</h1><p className="mt-2 text-sm text-[#788078]">{config.subtitle} · {realtimeStatus==="connected"?"Live updates":realtimeStatus==="connecting"?"Connecting to live updates":"Offline · use Refresh"}</p></div><button onClick={()=>void load()} className="flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm"><RefreshCw size={16}/>Refresh</button></div>
   <div className="mb-6 flex flex-wrap gap-3 rounded-2xl border bg-white p-4"><label className="text-sm">Restaurant <select className="ml-2 rounded-lg border p-2" value={tenantId} onChange={e=>setTenantId(e.target.value)}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label><label className="text-sm">Branch <select className="ml-2 rounded-lg border p-2" value={branchId} onChange={e=>setBranchId(e.target.value)}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label></div>
   <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">{config.metrics.map(([label,count])=><div key={label} className="rounded-2xl border bg-white p-5"><p className="text-xs text-[#788078]">{label}</p><p className="mt-2 text-3xl font-bold">{count}</p></div>)}</div>
   {error&&<p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}
