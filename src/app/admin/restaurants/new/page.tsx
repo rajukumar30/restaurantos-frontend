@@ -71,7 +71,7 @@ export default function NewRestaurantPage() {
     if (submittingRef.current || created) return;
     if (form.ownerPassword !== confirmPassword) { setError("Owner passwords do not match."); return; }
     if (form.restaurantName.trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").length > 63) {
-      setError("Use a shorter restaurant name for its URL (maximum 63 characters)."); return;
+      setError("Restaurant name is too long for the URL. Use a shorter name."); return;
     }
     if (form.country.trim().toLowerCase() === "india" && !/^[1-9][0-9]{5}$/.test(form.postalCode.trim())) {
       setError("Enter a valid six-digit Indian PIN code."); return;
@@ -126,7 +126,7 @@ export default function NewRestaurantPage() {
           <div className="mt-4 rounded-xl border border-[#eee2d0] bg-[#fff9ef] p-4 text-xs text-[#685e4f]">
             <strong>Restaurant subdomain preview</strong>
             <p className="mt-1 font-mono break-all">{subdomainPreview || "your-restaurant"}.restaurantos.com</p>
-            <p className="mt-1">Preview only. The backend reserves an available subdomain when you create the restaurant; duplicates may receive a suffix. This URL will work only after you purchase and configure the domain.</p>
+            <p className="mt-1">Preview only. Restaurants can share a display name; each gets a unique slug and subdomain, potentially with a suffix. This URL will work only after you purchase and configure the domain.</p>
           </div>
           <div className="mt-7 border-t border-[#eeeae2] pt-6">
             <h3 className="font-semibold text-sm mb-1">Branch address</h3>
@@ -135,9 +135,9 @@ export default function NewRestaurantPage() {
               <div className="sm:col-span-2"><Field label="Street address / Building" value={form.addressLine1} onChange={v=>update("addressLine1",v)} placeholder="Building number, street or road" required/></div>
               <Field label="Area / Locality" value={form.addressLine2} onChange={v=>update("addressLine2",v)} placeholder="Sector, neighborhood or locality"/>
               <Field label="Landmark" value={form.landmark} onChange={v=>update("landmark",v)} placeholder="Near a known landmark"/>
-              <Field label="City" value={form.city} onChange={v=>update("city",v)} placeholder="e.g. Bengaluru" required/>
-              <Field label="State / Province" value={form.state} onChange={v=>update("state",v)} placeholder="e.g. Karnataka" required/>
               <Field label="PIN / Postal code" value={form.postalCode} onChange={v=>update("postalCode",v)} placeholder="e.g. 560001" required/>
+              <Field label="City / District" value={form.city} onChange={v=>update("city",v)} placeholder="Auto-filled from PIN" required/>
+              <Field label="State / Province" value={form.state} onChange={v=>update("state",v)} placeholder="Auto-filled from PIN" required/>
               <Field label="Country" value={form.country} onChange={v=>update("country",v)} placeholder="e.g. India" required/>
               {form.country.trim().toLowerCase()==="india" && <p role="status" className="sm:col-span-2 text-xs text-[#77796f]">{pinLookup==="loading"?"Looking up PIN code…":pinLookup==="found"?"State and district filled from PIN code. Verify the city and edit if needed.":pinLookup==="not-found"?"Could not find this PIN code. Enter city and state manually.":"Enter a six-digit PIN code to fill state and district automatically."}</p>}
             </div>
