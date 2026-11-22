@@ -1,12 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowLeft, LockKeyhole, Mail, Utensils } from "lucide-react";
+import { ArrowLeft, LockKeyhole, Mail, Utensils, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {membershipRoles,staffRole,roleHome} from "../staff/role-routes";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword,setShowPassword] = useState(false);
 
   // Best-effort warm-up for the free Render instance while credentials are entered.
   useEffect(() => {
@@ -76,25 +77,32 @@ export default function LoginPage() {
     }
   }
 
-  return <main className="min-h-screen grid lg:grid-cols-[1.05fr_.95fr] bg-[#f7f4ec]">
+  return <main className="min-h-screen bg-[#f7f4ec] lg:grid lg:grid-cols-[1fr_1fr]">
     <section className="hidden lg:flex flex-col justify-between bg-[#171916] text-[#f7f4ec] p-12 xl:p-16">
-      <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div className="text-xl font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div></div>
-      <div className="max-w-lg"><div className="text-xs uppercase tracking-[.2em] text-[#a5aa9f] mb-5">The restaurant workspace</div><h1 className="text-5xl xl:text-6xl font-bold tracking-[-.06em] leading-[1.05]">A calmer way to run your restaurant<span className="text-[#E56A42]">.</span></h1><p className="text-[#b9bcb2] leading-7 mt-6 max-w-md">Orders, tables, kitchen and your business insights — together in one thoughtful workspace.</p></div>
-      <p className="text-xs text-[#777b70]">RestaurantOS · Built for the rhythm of restaurants.</p>
+      <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div className="text-xl font-bold">restaurant<span className="text-[#E56A42]">os</span></div></div>
+      <div className="max-w-lg"><div className="text-xs uppercase tracking-[.2em] text-[#a5aa9f] mb-5">One connected workspace</div><h1 className="text-5xl xl:text-6xl font-bold tracking-[-.06em] leading-[1.05]">Run every service with confidence<span className="text-[#E56A42]">.</span></h1><p className="text-[#b9bcb2] leading-7 mt-6 max-w-md">Orders, kitchen, tables and insights — everything your restaurant team needs, together.</p></div>
+      <p className="text-xs text-[#a5aa9f]">RestaurantOS · Restaurant operations, simplified.</p>
     </section>
-    <section className="flex items-center justify-center p-6 sm:p-10">
-      <div className="w-full max-w-md">
-        <Link href="/" className="inline-flex items-center gap-2 text-xs text-[#77796f] hover:text-[#171916] mb-12"><ArrowLeft size={15}/> Back to overview</Link>
-        <div className="lg:hidden flex items-center gap-3 mb-10"><div className="brand-mark">r.</div><div className="text-lg font-bold">restaurant<span className="text-[#E56A42]">os</span></div></div>
-        <div className="h-12 w-12 rounded-2xl bg-[#f4e8dc] text-[#d56a45] grid place-items-center mb-6"><Utensils size={21}/></div>
-        <div className="eyebrow">Welcome back</div><h2 className="text-3xl font-bold tracking-[-.05em] mt-2">Sign in to your workspace</h2><p className="text-sm text-[#77796f] mt-3 mb-8">Use the account details provided by your RestaurantOS administrator.</p>
-        <form onSubmit={submit} className="space-y-5">
-          <label className="block"><span className="text-xs font-semibold text-[#55584f]">Email address</span><span className="mt-2 flex items-center gap-3 rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4"><Mail size={16} className="text-[#99998f]"/><input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@restaurant.com" className="w-full bg-transparent py-3.5 text-sm outline-none"/></span></label>
-          <label className="block"><span className="text-xs font-semibold text-[#55584f]">Password</span><span className="mt-2 flex items-center gap-3 rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4"><LockKeyhole size={16} className="text-[#99998f]"/><input type="password" required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" className="w-full bg-transparent py-3.5 text-sm outline-none"/></span></label>
-          {error && <p role="alert" className="rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</p>}
-          <button disabled={loading} className="primary-button w-full !py-3.5 disabled:opacity-60">{loading ? "Signing in…" : "Sign in to RestaurantOS"}</button>
-        </form>
-        <p className="text-[11px] text-[#99998f] mt-8 leading-5">Need an account? Ask your platform administrator or restaurant owner to invite you.</p>
+    <section className="flex min-h-screen lg:min-h-0 flex-col px-5 py-6 sm:px-10 sm:py-10">
+      <div className="mx-auto w-full max-w-md">
+        <div className="flex items-center justify-between gap-3 mb-8 lg:mb-14">
+          <Link href="/" className="inline-flex items-center gap-2 text-sm text-[#77796f] hover:text-[#171916]"><ArrowLeft size={16}/> Back</Link>
+          <div className="lg:hidden flex items-center gap-2"><div className="brand-mark !h-9 !w-9 !rounded-xl">r.</div><span className="text-base font-bold">restaurant<span className="text-[#E56A42]">os</span></span></div>
+        </div>
+        <div className="rounded-[28px] border border-[#e8e1d5] bg-white p-6 shadow-[0_16px_50px_rgba(40,36,26,0.06)] sm:p-9">
+          <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f8e9df] text-[#d56a45]"><Utensils size={23}/></div>
+          <div className="text-xs font-bold uppercase tracking-[.16em] text-[#c15d3c]">Welcome back</div>
+          <h1 className="mt-2 text-[28px] leading-tight sm:text-3xl font-extrabold tracking-[-.045em] text-[#171916]">Sign in to RestaurantOS</h1>
+          <p className="mt-3 mb-7 text-sm leading-6 text-[#77796f]">Access your restaurant workspace securely.</p>
+          <form onSubmit={submit} className="space-y-5">
+            <label className="block"><span className="text-sm font-semibold text-[#42463e]">Email address</span><span className="mt-2 flex items-center gap-3 rounded-xl border border-[#dedbd3] bg-[#fdfcf9] px-4 focus-within:border-[#d56a45] focus-within:ring-2 focus-within:ring-[#f7e2d8]"><Mail size={18} className="shrink-0 text-[#878b80]"/><input type="email" required autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@restaurant.com" className="min-w-0 w-full bg-transparent py-3.5 text-base outline-none"/></span></label>
+            <label className="block"><span className="text-sm font-semibold text-[#42463e]">Password</span><span className="mt-2 flex items-center gap-3 rounded-xl border border-[#dedbd3] bg-[#fdfcf9] px-4 focus-within:border-[#d56a45] focus-within:ring-2 focus-within:ring-[#f7e2d8]"><LockKeyhole size={18} className="shrink-0 text-[#878b80]"/><input type={showPassword?"text":"password"} required autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" className="min-w-0 w-full bg-transparent py-3.5 text-base outline-none"/><button type="button" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(v=>!v)} className="shrink-0 p-1 text-[#77796f] hover:text-[#171916]">{showPassword?<EyeOff size={19}/>:<Eye size={19}/>}</button></span></label>
+            {error && <p role="alert" className="rounded-xl bg-[#fbede7] px-4 py-3 text-sm text-[#a7442a]">{error}</p>}
+            <button disabled={loading} className="w-full rounded-xl bg-[#e66b43] px-5 py-3.5 text-base font-bold text-white transition hover:bg-[#ce5833] disabled:cursor-wait disabled:opacity-65">{loading?"Signing in…":"Sign in"}</button>
+          </form>
+          <p className="mt-5 flex items-center justify-center gap-2 text-xs text-[#77796f]"><ShieldCheck size={15}/> Secure access for owners and staff</p>
+        </div>
+        <p className="mt-6 text-center text-xs leading-5 text-[#898c82]">Need access? Contact your restaurant owner or platform administrator.</p>
       </div>
     </section>
   </main>;
