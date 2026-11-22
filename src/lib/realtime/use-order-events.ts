@@ -20,7 +20,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   const scheduleRefresh=()=>{
    if(!active)return;
    if(refreshTimer!==undefined)return;
-   const delay=Math.max(0,350-(Date.now()-lastRefresh));
+   const delay=Math.max(0,100-(Date.now()-lastRefresh));
    refreshTimer=setTimeout(()=>{
     refreshTimer=undefined;
     if(!active)return;
@@ -32,11 +32,12 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   window.addEventListener("focus",refreshOnFocus);
   document.addEventListener("visibilitychange",refreshOnFocus);
   const seen=new Set<string>();
+  const seenQueue:string[]=[];
   const url=API.replace(/^http/,"ws").replace(/\/$/,"")+"/ws/realtime";
   const client=new Client({
    brokerURL:url,
    connectHeaders:{Authorization:"Bearer "+token},
-   reconnectDelay:3000,
+   reconnectDelay:1500,
    heartbeatIncoming:10000,
    heartbeatOutgoing:10000,
    onConnect:()=>{
@@ -49,7 +50,8 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
       const event=JSON.parse(message.body) as EventEnvelope;
       if(event.tenantId!==tenantId||event.branchId!==branchId||!event.eventId||seen.has(event.eventId))return;
       seen.add(event.eventId);
-      if(seen.size>500)seen.clear();
+      seenQueue.push(event.eventId);
+      if(seenQueue.length>500)seen.delete(seenQueue.shift()!);
       scheduleRefresh();
      }catch{/* Ignore malformed messages; the REST snapshot remains authoritative. */}
     });
