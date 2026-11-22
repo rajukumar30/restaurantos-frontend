@@ -47,7 +47,7 @@ export default function SubscriptionHealth() {
     if (!rows) return [];
     const now = new Date();
     const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-    return rows.filter(r => r.status === "ACTIVE" && r.lifecycleStatus === "ACTIVE" && !!r.endsOn && (() => {
+    return rows.filter(r => r.status === "ACTIVE" && (r.lifecycleStatus === "ACTIVE" || r.lifecycleStatus === "FREE_PERIOD") && !!r.endsOn && (() => {
       const end = Date.parse(r.endsOn + "T00:00:00Z");
       return Number.isFinite(end) && end >= today && end <= today + 7 * 86400000;
     })()).sort((a,b) => (a.endsOn??"").localeCompare(b.endsOn??""));
@@ -57,7 +57,7 @@ export default function SubscriptionHealth() {
     if (!rows) return null;
     const current = rows.filter(r => r.status === "ACTIVE");
     return {
-      active: current.filter(r => r.lifecycleStatus === "ACTIVE").length,
+      active: current.filter(r => r.lifecycleStatus === "ACTIVE" || r.lifecycleStatus === "FREE_PERIOD").length,
       free: current.filter(r => r.freeAccessNow).length,
       expired: current.filter(r => r.lifecycleStatus === "EXPIRED").length,
       expiring: expiringRows.length
