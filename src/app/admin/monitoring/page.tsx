@@ -4,7 +4,7 @@ import {useCallback,useEffect,useState} from "react";
 import Link from "next/link";
 import {Activity,RefreshCw,ShieldCheck,Server,Database,ExternalLink} from "lucide-react";
 
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/,"") ?? "";
 type Health={status?:string;components?:{db?:{status?:string}}};
 type Result={checkedAt:string;api:"UP"|"DOWN"|"UNKNOWN";database:"UP"|"DOWN"|"UNKNOWN";latencyMs:number|null;error:string};
 export default function PlatformMonitoring(){
@@ -14,6 +14,7 @@ export default function PlatformMonitoring(){
   setLoading(true);
   const started=performance.now();
   try{
+   if(!API)throw new Error("NEXT_PUBLIC_API_BASE_URL is not configured");
    const response=await fetch(API+"/actuator/health",{cache:"no-store",signal});
    if(!response.ok)throw new Error("Backend health endpoint returned HTTP "+response.status);
    const health:Health=await response.json();
