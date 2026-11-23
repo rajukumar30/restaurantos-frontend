@@ -1,11 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { LockKeyhole, Mail, Utensils, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {membershipRoles,staffRole,roleHome} from "../staff/role-routes";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,25 +15,22 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [showPassword,setShowPassword] = useState(false);
 
-  // Best-effort warm-up for the free Render instance while credentials are entered.
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(API + "/actuator/health", { mode: "no-cors", signal: controller.signal, cache: "no-store" }).catch(() => {});
-    return () => controller.abort();
-  }, []);
-
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
     localStorage.removeItem("restaurantos_access_token");
     localStorage.removeItem("restaurantos_user");
+    const startedAt = performance.now();
     try {
+      if (!API) throw new Error("Backend URL is not configured. Set NEXT_PUBLIC_API_BASE_URL in Vercel.");
       const response = await fetch(`${API}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const apiElapsedMs = Math.round(performance.now() - startedAt);
+      console.info("[Krlio performance] Login API response:", apiElapsedMs, "ms", "status:", response.status);
       const raw = await response.text();
       let payload = null;
       if (raw.trim()) {
@@ -68,8 +65,10 @@ export default function LoginPage() {
          (staffRole(roles)==="CASHIER"&&next==="/staff/billing")))
       );
       const safeNext=allowedNext&&next?next:destination;
+      console.info("[Krlio performance] Login processing and navigation initiated:", Math.round(performance.now() - startedAt), "ms");
       router.replace(safeNext);
     } catch (err) {
+      console.warn("[Krlio performance] Login request failed after", Math.round(performance.now() - startedAt), "ms");
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
