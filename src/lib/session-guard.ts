@@ -40,7 +40,7 @@ export function useSessionGuard(enabled:boolean){
    const response=await original.call(window,input,init);
    if(response.status===401){
     const url=typeof input==="string"?input:input instanceof URL?input.href:input.url;
-    const api=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+    const api=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
     if(url.startsWith(api+"/api/")&&!url.includes("/auth/login")){
      const token=localStorage.getItem(KEY);
      if(token)clearSessionAndRedirect(window.location.pathname);

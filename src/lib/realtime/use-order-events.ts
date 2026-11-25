@@ -16,21 +16,27 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
   if(!token||!tenantId||!branchId){return;}
   let active=true;
   let refreshTimer:ReturnType<typeof setTimeout>|undefined;
-  let lastRefresh=0;
+  let lastRefresh=0,inFlight=false,pending=false,fullRefresh=false;
   let pendingResourceId:string|undefined;
-  const scheduleRefresh=(resourceId?:string)=>{
-   if(resourceId)pendingResourceId=pendingResourceId && pendingResourceId!==resourceId?"":resourceId;
-   if(!active)return;
-   if(refreshTimer!==undefined)return;
-   const delay=Math.max(0,100-(Date.now()-lastRefresh));
+  const drain=()=>{
+   if(!active||!pending||inFlight||refreshTimer!==undefined)return;
    refreshTimer=setTimeout(()=>{
     refreshTimer=undefined;
-    if(!active)return;
-    lastRefresh=Date.now();
-    const resourceId=pendingResourceId;
-    pendingResourceId=undefined;
-    onChangeRef.current(resourceId||undefined);
-   },delay);
+    if(!active||!pending)return;
+    const resourceId=fullRefresh?undefined:pendingResourceId;
+    pending=false;fullRefresh=false;pendingResourceId=undefined;
+    inFlight=true;lastRefresh=Date.now();
+    Promise.resolve().then(()=>active?onChangeRef.current(resourceId):undefined)
+     .catch(()=>{/* Consumers own their error state. */})
+     .finally(()=>{inFlight=false;drain();});
+   },Math.max(0,100-(Date.now()-lastRefresh)));
+  };
+  const scheduleRefresh=(resourceId?:string)=>{
+   if(!active)return;
+   pending=true;
+   if(!resourceId||(pendingResourceId&&pendingResourceId!==resourceId))fullRefresh=true;
+   else if(!fullRefresh)pendingResourceId=resourceId;
+   drain();
   };
   const refreshOnFocus=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
   window.addEventListener("focus",refreshOnFocus);
@@ -47,7 +53,6 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
    onConnect:()=>{
     if(!active)return;
     setStatus("connected");
-    scheduleRefresh();
     client.subscribe("/topic/tenants/"+tenantId+"/branches/"+branchId+"/"+topic,message=>{
      if(!active)return;
      try{
@@ -59,6 +64,7 @@ export function useOrderEvents(token:string,tenantId:string,branchId:string,onCh
       scheduleRefresh(event.resourceId);
      }catch{/* Ignore malformed messages; the REST snapshot remains authoritative. */}
     });
+    scheduleRefresh();
    },
    onWebSocketClose:()=>{if(active)setStatus("disconnected");},
    onStompError:()=>{if(active)setStatus("disconnected");},

@@ -43,7 +43,7 @@ export default function KitchenDisplay(){
   const action=next[o.status]||(o.status==="READY"&&serviceMode==="KITCHEN_MANAGED"?{status:"SERVED",label:"Mark served (handed to waiter)"}:undefined);
   if(!action||!canOperate||mutation.current?.scope===scope)return;
   const operation={scope,id:o.id};mutation.current=operation;setBusy(o.id);setError("");
-  try{const result=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+"/status",{method:"PATCH",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status:action.status})}));
+  try{const result=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+(action.status==="SERVED"?"/served":"/status"),{method:"PATCH",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status:action.status})}));
    if(scopeRef.current!==scope)return;
    orderVersion.current++;setOrders(items=>items.map(item=>item.id===o.id?{...item,status:result.status}:item));setSelected(null);
    void load(o.id);

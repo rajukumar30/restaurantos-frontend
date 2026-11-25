@@ -4,7 +4,7 @@ import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
 import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History} from "lucide-react";
 import {staffRole,roleHome} from "./role-routes";
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 async function fetchWithTimeout(url:string,headers:HeadersInit){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{return await fetch(url,{headers,signal:controller.signal,cache:"no-store"});}finally{clearTimeout(timeout);}}
 type Access={roles:string[];permissions:string[]};
 type Feature={key:string;effectiveEnabled:boolean};

@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
 import {Client} from "@stomp/stompjs";
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 export function useGuestOrderEvents(qrToken:string,orderId:string,onChange:()=>void){
  const [status,setStatus]=useState<"connecting"|"connected"|"disconnected">("disconnected");
  const callback=useRef(onChange);
