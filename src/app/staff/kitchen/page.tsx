@@ -1,10 +1,10 @@
 "use client";
-import {useCallback,useEffect,useMemo,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {useRouter} from "next/navigation";
 import {ChefHat,RefreshCw,Clock3,History,UtensilsCrossed} from "lucide-react";
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Order={id:string;orderNumber:string;tableName:string;status:string;itemsSummary:string;itemCount:number;createdAt:string};
 type Branch={id:string;name:string};
 type Access={roles:string[];permissions:string[]};
@@ -19,13 +19,37 @@ export default function KitchenDisplay(){
  useEffect(()=>{const interval=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(interval);},[]);
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login");return;}try{const membership=JSON.parse(raw).memberships?.[0];if(!membership?.tenantId)throw Error("No restaurant membership");setToken(t);setTenant(membership.tenantId);}catch{router.replace("/login");}},[router]);
  useEffect(()=>{if(!token||!tenant)return;let live=true;(async()=>{try{const b=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranch(b[0]?.id||"");if(!b.length){setError("No active branch assigned.");setLoading(false);}}}catch(e){if(live){setError(e instanceof Error?e.message:"Unable to load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant]);
- const load=useCallback(async()=>{if(!branch)return;try{const headers={Authorization:"Bearer "+token};const [a,o,m]=await Promise.all([fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=await parse(a),tickets:Order[]=await parse(o);setAccess(permission);setOrders(tickets);setServiceMode((await parse(m)).mode);setError("");}catch(e){setError(e instanceof Error?e.message:"Unable to refresh kitchen orders");}finally{setLoading(false);}},[token,tenant,branch]);
+ const scope=JSON.stringify([token,tenant,branch]);
+ const scopeRef=useRef(scope),orderVersion=useRef(0),metadataVersion=useRef(0);
+ const mutation=useRef<{scope:string;id:string}|null>(null);
+ useEffect(()=>{scopeRef.current=scope;setBusy("");return()=>{scopeRef.current="";orderVersion.current++;metadataVersion.current++;};},[scope]);
+ const load=useCallback(async(resourceId?:string)=>{
+  if(!token||!tenant||!branch||scopeRef.current!==scope)return;
+  const version=++orderVersion.current;
+  const headers={Authorization:"Bearer "+token};
+  const metaVersion=resourceId?metadataVersion.current:++metadataVersion.current;
+  const ordersRequest=(async()=>{const tickets:Order[]=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch,{headers,cache:"no-store"}));if(scopeRef.current===scope&&orderVersion.current===version){setOrders(tickets);}})();
+  const metadataRequest=resourceId?Promise.resolve():(async()=>{const [a,m]=await Promise.all([fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=await parse(a),mode=(await parse(m)).mode;if(scopeRef.current===scope&&metadataVersion.current===metaVersion){setAccess(permission);setServiceMode(mode);}})();
+  try{await Promise.all([ordersRequest,metadataRequest]);if(!resourceId&&scopeRef.current===scope&&orderVersion.current===version)setError("");}
+  catch(e){if(scopeRef.current===scope&&orderVersion.current===version)setError(e instanceof Error?e.message:"Unable to refresh kitchen orders");}
+  finally{if(scopeRef.current===scope&&orderVersion.current===version)setLoading(false);}
+ },[token,tenant,branch,scope]);
  useEffect(()=>{if(!branch)return;setLoading(true);setOrders([]);void load();},[branch,load]);
  const realtimeStatus=useOrderEvents(token,tenant,branch,load);
  useEffect(()=>{if(!branch||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void load();};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branch,realtimeStatus,load]);
  const roles=access.roles.map(r=>r.toUpperCase()),canOperate=access.permissions.includes("kitchen:operate")&&(roles.includes("KITCHEN")||roles.includes("MANAGER")||roles.includes("OWNER"));
  const active=useMemo(()=>orders.filter(o=>columns.some(c=>c.key===o.status)).sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime()),[orders]);
- async function advance(o:Order){const action=next[o.status]||(o.status==="READY"&&serviceMode==="KITCHEN_MANAGED"?{status:"SERVED",label:"Mark served (handed to waiter)"}:undefined);if(!action||!canOperate||busy)return;setBusy(o.id);try{await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+"/status",{method:"PATCH",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status:action.status})}));setSelected(null);await load();}catch(e){setError(e instanceof Error?e.message:"Could not update ticket");await load();}finally{setBusy("");}}
+ async function advance(o:Order){
+  const action=next[o.status]||(o.status==="READY"&&serviceMode==="KITCHEN_MANAGED"?{status:"SERVED",label:"Mark served (handed to waiter)"}:undefined);
+  if(!action||!canOperate||mutation.current?.scope===scope)return;
+  const operation={scope,id:o.id};mutation.current=operation;setBusy(o.id);setError("");
+  try{const result=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+"/status",{method:"PATCH",headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status:action.status})}));
+   if(scopeRef.current!==scope)return;
+   orderVersion.current++;setOrders(items=>items.map(item=>item.id===o.id?{...item,status:result.status}:item));setSelected(null);
+   void load(o.id);
+  }catch(e){if(scopeRef.current===scope){void load(o.id);setError(e instanceof Error?e.message:"Could not update ticket");}}
+  finally{if(mutation.current===operation){mutation.current=null;if(scopeRef.current===scope)setBusy("");}}
+ }
  return <main className="mx-auto max-w-[1700px] px-4 py-6 sm:px-7"><div className="mb-5 flex flex-wrap items-center justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-[#d36a45]">RestaurantOS / Kitchen</p><h1 className="mt-2 flex items-center gap-2 text-3xl font-extrabold"><ChefHat size={28}/>Kitchen display</h1><p className="mt-2 text-sm text-[#788078]">Every live ticket, organized by preparation status · Live updates when connected</p></div><div className="flex flex-wrap gap-2"><Link href="/staff/operations/kitchen-history" className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold"><History size={16}/>Order history</Link><button onClick={()=>void load()} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2.5 text-sm font-semibold"><RefreshCw size={16}/>Refresh</button></div></div>
  <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border bg-white p-4"><label className="text-sm font-semibold">Branch <select className="ml-2 rounded-lg border px-3 py-2 font-normal" value={branch} onChange={e=>setBranch(e.target.value)}>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><div className="flex items-center gap-2 text-sm text-[#788078]"><span className="h-2 w-2 rounded-full bg-emerald-500"/>{active.length} active tickets · {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · use Refresh"}</div></div>
  {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-700">{error}</p>}

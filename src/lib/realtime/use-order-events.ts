@@ -3,7 +3,7 @@
 import {useEffect,useRef,useState} from "react";
 import {Client} from "@stomp/stompjs";
 
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Status="connecting"|"connected"|"disconnected";
 type EventEnvelope={eventId:string;type:string;tenantId:string;branchId:string;resourceId:string;occurredAt:string};
 
