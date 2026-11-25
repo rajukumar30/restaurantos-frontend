@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
+import {useStaffBootstrap} from "../bootstrap-context";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {UtensilsCrossed,RefreshCw,BellRing,Clock3} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
@@ -8,23 +9,26 @@ type Order={id:string;orderNumber:string;tableName:string;status:string;itemsSum
 type Branch={id:string;name:string};
 async function read(r:Response){const raw=await r.text();let p;try{p=JSON.parse(raw);}catch{throw Error("Invalid response ("+r.status+")");}if(!r.ok||!p.success)throw Error(p.message||"Request failed");return p.data;}
 export default function WaiterTables(){
- const router=useRouter();const [token,setToken]=useState("");const [tenant,setTenant]=useState("");const [branch,setBranch]=useState("");const [branches,setBranches]=useState<Branch[]>([]);const [orders,setOrders]=useState<Order[]>([]);const [permissions,setPermissions]=useState<string[]>([]);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [now,setNow]=useState(Date.now());const [readyOnly,setReadyOnly]=useState(false);
+ const router=useRouter();const bootstrap=useStaffBootstrap();const [token,setToken]=useState("");const [tenant,setTenant]=useState("");const [branch,setBranch]=useState("");const [branches,setBranches]=useState<Branch[]>([]);const [orders,setOrders]=useState<Order[]>([]);const [permissions,setPermissions]=useState<string[]>([]);const [error,setError]=useState("");const [busy,setBusy]=useState("");const [now,setNow]=useState(Date.now());const [readyOnly,setReadyOnly]=useState(false);
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login?next=%2Fstaff%2Ftables");return;}try{const m=JSON.parse(raw).memberships||[];if(!m.length)throw Error("No membership");setToken(t);setTenant(m[0].tenantId);}catch{router.replace("/login");}},[router]);
- useEffect(()=>{if(!token||!tenant)return;let live=true;read(awaitFetch());async function awaitFetch(){return fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}});}async function read(p:Promise<Response>){try{const response=await p;const raw=await response.json();if(!response.ok||!raw.success)throw Error(raw.message||"Cannot load branches");if(live){setBranches(raw.data);setBranch(raw.data[0]?.id||"");}}catch(e){if(live)setError(e instanceof Error?e.message:"Unable to load branches");}}return()=>{live=false;};},[token,tenant]);
+ useEffect(()=>{if(!token||!tenant)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenant){setBranches(bootstrap.branches);setBranch(bootstrap.branches[0]?.id||"");setPermissions(bootstrap.access.permissions);return;}let live=true;read(awaitFetch());async function awaitFetch(){return fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}});}async function read(p:Promise<Response>){try{const response=await p;const raw=await response.json();if(!response.ok||!raw.success)throw Error(raw.message||"Cannot load branches");if(live){setBranches(raw.data);setBranch(raw.data[0]?.id||"");}}catch(e){if(live)setError(e instanceof Error?e.message:"Unable to load branches");}}return()=>{live=false;};},[token,tenant,bootstrap]);
  const scope=JSON.stringify([token,tenant,branch]),scopeRef=useRef(scope),version=useRef(0),metadataVersion=useRef(0);
+ const reusedAccess=useRef(false);
  const mutation=useRef<{scope:string}|null>(null);
  useEffect(()=>{scopeRef.current=scope;setBusy("");setOrders([]);setPermissions([]);return()=>{scopeRef.current="";version.current++;metadataVersion.current++;};},[scope]);
  const load=useCallback(async(resourceId?:string)=>{
   if(!branch||scopeRef.current!==scope)return;
   const current=++version.current,meta=resourceId?metadataVersion.current:++metadataVersion.current;
   const headers={Authorization:"Bearer "+token};
+  const initialAccess=!reusedAccess.current&&bootstrap?.token===token&&bootstrap.tenantId===tenant&&bootstrap.branches[0]?.id===branch?bootstrap.access:null;
+  if(!resourceId&&initialAccess)reusedAccess.current=true;
   try{await Promise.all([
    (async()=>{const rows:Order[]=await read(await fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch,{headers,cache:"no-store"}));if(scopeRef.current===scope&&version.current===current)setOrders(rows);})(),
-   resourceId?Promise.resolve():(async()=>{const a=await read(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}));if(scopeRef.current===scope&&metadataVersion.current===meta)setPermissions(a.permissions);})()
+   resourceId?Promise.resolve():(async()=>{const a=initialAccess??await read(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}));if(scopeRef.current===scope&&metadataVersion.current===meta)setPermissions(a.permissions);})()
   ]);if(!resourceId&&scopeRef.current===scope&&version.current===current)setError("");}
   catch(e){if(scopeRef.current===scope&&version.current===current)setError(e instanceof Error?e.message:"Unable to load orders");}
- },[branch,tenant,token,scope]);
+ },[branch,tenant,token,scope,bootstrap]);
  useEffect(()=>{if(branch)void load();},[load,branch]);
  const realtimeStatus=useOrderEvents(token,tenant,branch,load);
  const ready=useMemo(()=>orders.filter(o=>o.status==="READY").sort((a,b)=>new Date(a.createdAt).getTime()-new Date(b.createdAt).getTime()),[orders]);

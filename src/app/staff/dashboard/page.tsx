@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useRouter} from "next/navigation";
 import StaffServiceRequests from "@/components/staff-service-requests";
+import {useStaffBootstrap} from "../bootstrap-context";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {ChefHat,RefreshCw,Clock3,ShieldCheck,Wallet,Users,UtensilsCrossed,BarChart3} from "lucide-react";
 
@@ -13,7 +14,7 @@ type Access={roles:string[];permissions:string[]};
 async function json(response:Response){const raw=await response.text();let data;try{data=raw?JSON.parse(raw):null;}catch{throw Error("Invalid server response ("+response.status+")");}if(!response.ok||!data?.success)throw Error(data?.message||"Request failed (HTTP "+response.status+")");return data.data;}
 const next:Record<string,string>={NEW:"ACCEPTED",ACCEPTED:"PREPARING",PREPARING:"READY",READY:"SERVED"};
 export default function StaffDashboard(){
- const router=useRouter();
+ const router=useRouter();const bootstrap=useStaffBootstrap();
  const [token,setToken]=useState("");
  const [memberships,setMemberships]=useState<Membership[]>([]);
  const [tenantId,setTenantId]=useState("");
@@ -26,22 +27,25 @@ export default function StaffDashboard(){
  const [updating,setUpdating]=useState("");
  const [updated,setUpdated]=useState<Date|null>(null);
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token");const raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login?next=%2Fstaff%2Fdashboard");return;}try{const user=JSON.parse(raw);const list:Membership[]=user.memberships||[];if(!list.length){router.replace("/login");return;}setToken(t);setMemberships(list);setTenantId(list[0].tenantId);}catch{router.replace("/login");}},[router]);
- useEffect(()=>{if(!token||!tenantId)return;let live=true;setBranchId("");setBranches([]);setAccess({roles:[],permissions:[]});setOrders([]);setLoading(true);jsonFetch();async function jsonFetch(){try{const b=await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranchId(b[0]?.id||"");if(!b.length)setLoading(false);}}catch(e){if(live){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}}}return()=>{live=false;};},[token,tenantId]);
+ useEffect(()=>{if(!token||!tenantId)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenantId){setBranches(bootstrap.branches);setBranchId(bootstrap.branches[0]?.id||"");setAccess(bootstrap.access);return;}let live=true;setBranchId("");setBranches([]);setAccess({roles:[],permissions:[]});setOrders([]);setLoading(true);jsonFetch();async function jsonFetch(){try{const b=await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranchId(b[0]?.id||"");if(!b.length)setLoading(false);}}catch(e){if(live){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}}}return()=>{live=false;};},[token,tenantId,bootstrap]);
  const scope=JSON.stringify([token,tenantId,branchId]);
  const scopeRef=useRef(scope),orderVersion=useRef(0),metadataVersion=useRef(0);
+ const reusedAccess=useRef(false);
  const mutation=useRef<{scope:string;id:string}|null>(null);
  useEffect(()=>{scopeRef.current=scope;setUpdating("");return()=>{scopeRef.current="";orderVersion.current++;metadataVersion.current++;};},[scope]);
  const load=useCallback(async(resourceId?:string)=>{
   if(!token||!tenantId||!branchId||scopeRef.current!==scope)return;
   const version=++orderVersion.current;
   const headers={Authorization:"Bearer "+token};
+  const initialAccess=!reusedAccess.current&&bootstrap?.token===token&&bootstrap.tenantId===tenantId&&bootstrap.branches[0]?.id===branchId?bootstrap.access:null;
+  if(!resourceId&&initialAccess)reusedAccess.current=true;
   const metaVersion=resourceId?metadataVersion.current:++metadataVersion.current;
   const ordersRequest=(async()=>{const tickets:Order[]=await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/orders?branchId="+branchId,{headers,cache:"no-store"}));if(scopeRef.current===scope&&orderVersion.current===version){setOrders(tickets);setUpdated(new Date());}})();
-  const metadataRequest=resourceId?Promise.resolve():(async()=>{const a=await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/access?branchId="+branchId,{headers,cache:"no-store"}));if(scopeRef.current===scope&&metadataVersion.current===metaVersion)setAccess(a);})();
+  const metadataRequest=resourceId?Promise.resolve():(async()=>{const a=initialAccess??await json(await fetch(API+"/api/v1/tenants/"+tenantId+"/staff-operations/access?branchId="+branchId,{headers,cache:"no-store"}));if(scopeRef.current===scope&&metadataVersion.current===metaVersion)setAccess(a);})();
   try{await Promise.all([ordersRequest,metadataRequest]);if(!resourceId&&scopeRef.current===scope&&orderVersion.current===version)setError("");}
   catch(e){if(scopeRef.current===scope&&orderVersion.current===version)setError(e instanceof Error?e.message:"Unable to load orders");}
   finally{if(scopeRef.current===scope&&orderVersion.current===version)setLoading(false);}
- },[token,tenantId,branchId,scope]);
+ },[token,tenantId,branchId,scope,bootstrap]);
  useEffect(()=>{if(!branchId)return;setLoading(true);void load();},[branchId,load]);
  const billingRealtime=access.roles.some(r=>r.toUpperCase()==="CASHIER") && access.permissions.includes("payments:read");
  const realtimeStatus=useOrderEvents(token,tenantId,branchId,load,billingRealtime?"billing":"orders");

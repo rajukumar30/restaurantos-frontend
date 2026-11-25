@@ -1,6 +1,7 @@
 "use client";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
+import {useStaffBootstrap} from "../bootstrap-context";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {useRouter} from "next/navigation";
 import {ChefHat,RefreshCw,Clock3,History,UtensilsCrossed} from "lucide-react";
@@ -13,27 +14,30 @@ const next:Record<string,{status:string;label:string}>={NEW:{status:"ACCEPTED",l
 async function parse(r:Response){const raw=await r.text();let p;try{p=JSON.parse(raw);}catch{throw Error("Unexpected server response ("+r.status+")");}if(!r.ok||!p?.success)throw Error(p?.message||"Request failed ("+r.status+")");return p.data;}
 function elapsed(created:string,now:number){const time=new Date(created).getTime();if(!Number.isFinite(time))return "Time unavailable";const minutes=Math.max(0,Math.floor((now-time)/60000));return minutes<60?minutes+" min":Math.floor(minutes/60)+"h "+minutes%60+"m";}
 export default function KitchenDisplay(){
- const router=useRouter();const [token,setToken]=useState(""),[tenant,setTenant]=useState("");
+ const router=useRouter();const bootstrap=useStaffBootstrap();const [token,setToken]=useState(""),[tenant,setTenant]=useState("");
  const [branches,setBranches]=useState<Branch[]>([]),[branch,setBranch]=useState(""),[access,setAccess]=useState<Access>({roles:[],permissions:[]});
  const [serviceMode,setServiceMode]=useState("WAITER_CONFIRMED");const [orders,setOrders]=useState<Order[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[busy,setBusy]=useState(""),[now,setNow]=useState(Date.now()),[selected,setSelected]=useState<Order|null>(null);
  useEffect(()=>{const interval=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(interval);},[]);
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login");return;}try{const membership=JSON.parse(raw).memberships?.[0];if(!membership?.tenantId)throw Error("No restaurant membership");setToken(t);setTenant(membership.tenantId);}catch{router.replace("/login");}},[router]);
- useEffect(()=>{if(!token||!tenant)return;let live=true;(async()=>{try{const b=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranch(b[0]?.id||"");if(!b.length){setError("No active branch assigned.");setLoading(false);}}}catch(e){if(live){setError(e instanceof Error?e.message:"Unable to load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant]);
+ useEffect(()=>{if(!token||!tenant)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenant){setBranches(bootstrap.branches);setBranch(bootstrap.branches[0]?.id||"");setAccess(bootstrap.access);return;}let live=true;(async()=>{try{const b=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranch(b[0]?.id||"");if(!b.length){setError("No active branch assigned.");setLoading(false);}}}catch(e){if(live){setError(e instanceof Error?e.message:"Unable to load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant,bootstrap]);
  const scope=JSON.stringify([token,tenant,branch]);
  const scopeRef=useRef(scope),orderVersion=useRef(0),metadataVersion=useRef(0);
+ const reusedAccess=useRef(false);
  const mutation=useRef<{scope:string;id:string}|null>(null);
  useEffect(()=>{scopeRef.current=scope;setBusy("");return()=>{scopeRef.current="";orderVersion.current++;metadataVersion.current++;};},[scope]);
  const load=useCallback(async(resourceId?:string)=>{
   if(!token||!tenant||!branch||scopeRef.current!==scope)return;
   const version=++orderVersion.current;
   const headers={Authorization:"Bearer "+token};
+  const initialAccess=!reusedAccess.current&&bootstrap?.token===token&&bootstrap.tenantId===tenant&&bootstrap.branches[0]?.id===branch?bootstrap.access:null;
+  if(!resourceId&&initialAccess)reusedAccess.current=true;
   const metaVersion=resourceId?metadataVersion.current:++metadataVersion.current;
   const ordersRequest=(async()=>{const tickets:Order[]=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch,{headers,cache:"no-store"}));if(scopeRef.current===scope&&orderVersion.current===version){setOrders(tickets);}})();
-  const metadataRequest=resourceId?Promise.resolve():(async()=>{const [a,m]=await Promise.all([fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=await parse(a),mode=(await parse(m)).mode;if(scopeRef.current===scope&&metadataVersion.current===metaVersion){setAccess(permission);setServiceMode(mode);}})();
+  const metadataRequest=resourceId?Promise.resolve():(async()=>{const [a,m]=await Promise.all([initialAccess?Promise.resolve(null):fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=initialAccess??await parse(a!),mode=(await parse(m)).mode;if(scopeRef.current===scope&&metadataVersion.current===metaVersion){setAccess(permission);setServiceMode(mode);}})();
   try{await Promise.all([ordersRequest,metadataRequest]);if(!resourceId&&scopeRef.current===scope&&orderVersion.current===version)setError("");}
   catch(e){if(scopeRef.current===scope&&orderVersion.current===version)setError(e instanceof Error?e.message:"Unable to refresh kitchen orders");}
   finally{if(scopeRef.current===scope&&orderVersion.current===version)setLoading(false);}
- },[token,tenant,branch,scope]);
+ },[token,tenant,branch,scope,bootstrap]);
  useEffect(()=>{if(!branch)return;setLoading(true);setOrders([]);void load();},[branch,load]);
  const realtimeStatus=useOrderEvents(token,tenant,branch,load);
  useEffect(()=>{if(!branch||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void load();};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branch,realtimeStatus,load]);

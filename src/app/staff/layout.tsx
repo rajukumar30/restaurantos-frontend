@@ -3,9 +3,10 @@ import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
 import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History} from "lucide-react";
+import {StaffBootstrapContext,type StaffBootstrap} from "./bootstrap-context";
 import {staffRole,roleHome} from "./role-routes";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
-async function fetchWithTimeout(url:string,headers:HeadersInit){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{return await fetch(url,{headers,signal:controller.signal,cache:"no-store"});}finally{clearTimeout(timeout);}}
+async function fetchWithTimeout(url:string,headers:HeadersInit,signal?:AbortSignal){const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();const timeout=setTimeout(abort,20000);try{return await fetch(url,{headers,signal:controller.signal,cache:"no-store"});}finally{clearTimeout(timeout);signal?.removeEventListener("abort",abort);}}
 type Access={roles:string[];permissions:string[]};
 type Feature={key:string;effectiveEnabled:boolean};
 const featureForRoute=(href:string):string|null=>href.includes("/kitchen")?"KITCHEN_DISPLAY":href.includes("/waiter")||href==="/staff/tables"?"WAITER_DASHBOARD":null;
@@ -20,6 +21,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const pathname=usePathname(),router=useRouter();
  const [open,setOpen]=useState(false),[loading,setLoading]=useState(true);
  const [access,setAccess]=useState<Access>({roles:[],permissions:[]});
+ const [bootstrap,setBootstrap]=useState<StaffBootstrap|null>(null);
  const [restaurant,setRestaurant]=useState("Restaurant workspace");
  const [name,setName]=useState("Team member");
  const [error,setError]=useState("");
@@ -28,7 +30,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  useEffect(()=>{if(!loading){setShowSlowMessage(false);return;}const timer=setTimeout(()=>setShowSlowMessage(true),3500);return()=>clearTimeout(timer);},[loading,retry]);
  const [features,setFeatures]=useState<Set<string>>(new Set());
  const [featuresReady,setFeaturesReady]=useState(false);
- useEffect(()=>{let active=true;
+ useEffect(()=>{let active=true;const controller=new AbortController();
  async function initialize(){
   const token=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");
   if(!token||!raw){setLoading(false);router.replace("/login?next="+encodeURIComponent(pathname));return;}
@@ -37,24 +39,24 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
    if(!memberships.length){setLoading(false);router.replace("/login");return;}
    const membership=memberships[0];setRestaurant(membership.tenantName||"Restaurant workspace");setName(user.name||"Team member");
    const headers={Authorization:"Bearer "+token};
-   const [entitlementsResponse,branchesResponse]=await Promise.all([fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",headers),fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers)]);
+   const [entitlementsResponse,branchesResponse]=await Promise.all([fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/features",headers,controller.signal),fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/branches",headers,controller.signal)]);
    const entitlementsPayload=await entitlementsResponse.json().catch(()=>null);
-   if(!entitlementsResponse.ok||!entitlementsPayload.success||!Array.isArray(entitlementsPayload.data?.features))
+   if(!entitlementsResponse.ok||!entitlementsPayload?.success||!Array.isArray(entitlementsPayload.data?.features))
     throw Error(entitlementsResponse.status===403?"Account disabled or access denied. Contact your restaurant administrator.":entitlementsPayload?.message||`Cannot verify subscription features (HTTP ${entitlementsResponse.status})`);
    const permitted=new Set<string>((entitlementsPayload.data.features as Feature[]).filter(f=>f.effectiveEnabled).map(f=>f.key));
    if(active){setFeatures(permitted);setFeaturesReady(true);}
    const branchesPayload=await branchesResponse.json().catch(()=>null);
-   if(!branchesResponse.ok||!branchesPayload.success)throw Error(branchesPayload?.message||`Cannot load staff access (HTTP ${branchesResponse.status})`);
+   if(!branchesResponse.ok||!branchesPayload?.success)throw Error(branchesPayload?.message||`Cannot load staff access (HTTP ${branchesResponse.status})`);
    const branch=branchesPayload.data?.[0];
    if(!branch)throw Error("No active branch assigned to this account.");
-   const response=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/access?branchId="+branch.id,headers);
+   const response=await fetchWithTimeout(API+"/api/v1/tenants/"+membership.tenantId+"/staff-operations/access?branchId="+branch.id,headers,controller.signal);
    const payload=await response.json();
    if(!response.ok||!payload.success)throw Error(payload.message||"Cannot load permissions");
-   if(active){setAccess(payload.data);setError("");}
+   if(active){setAccess(payload.data);setBootstrap({token,tenantId:membership.tenantId,branches:branchesPayload.data,access:payload.data});setError("");}
   }catch(e){if(active){setFeaturesReady(false);setFeatures(new Set());setError(e instanceof Error&&e.name==="AbortError"?"The server is taking too long to respond. Please retry.":e instanceof Error?e.message:"Cannot load staff access");}}
   finally{if(active)setLoading(false);}
  }
- void initialize();return()=>{active=false;};
+ void initialize();return()=>{active=false;controller.abort();};
  },[router,retry]);
  useEffect(()=>{
   if(loading||error||!featuresReady)return;
@@ -119,7 +121,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
  useEffect(()=>{if(loading||error||roleDisabled)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,roleDisabled,pathname,home,router]);
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
- if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p>{showSlowMessage&&<><p className="mt-2 text-xs text-[#77796f]">The restaurant server is taking longer than usual to respond.</p><button onClick={()=>{setLoading(true);setRetry(n=>n+1);}} className="mt-4 rounded-lg border bg-white px-4 py-2 text-sm">Retry connection</button></>}</div></main>;
+ if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p>{showSlowMessage&&<><p className="mt-2 text-xs text-[#77796f]">Still connecting securely to your restaurant. Please keep this page open.</p></>}</div></main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><div className="mt-5 flex justify-center gap-2"><button className="rounded-xl border px-4 py-2" onClick={()=>{setLoading(true);setError("");setRetry(n=>n+1);}}>Retry</button><button className="rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></div></main>;
  if(roleDisabled)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="text-lg font-bold">Account access disabled</h1><p className="mt-2 text-sm text-[#77796f]">Your {resolvedRole==="KITCHEN"?"Kitchen":"Waiter"} feature is not included in the restaurant&apos;s active plan. Contact your restaurant administrator.</p><button onClick={logout} className="mt-5 rounded-xl bg-[#1b241f] px-5 py-3 text-sm text-white">Return to login</button></div></main>;
  if(!["/staff/dashboard","/staff","/staff/"].includes(pathname)&&!links.some(item=>item.href===current))return <main className="grid min-h-screen place-items-center p-6"><div className="text-center"><ShieldCheck className="mx-auto mb-3"/><p className="font-semibold">This page is not available for your role.</p><Link className="mt-3 inline-block text-[#d36a45]" href={home}>Go to dashboard</Link></div></main>;
@@ -132,6 +134,6 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
   <div className="m-4 rounded-2xl bg-[#29392f] p-4"><div className="flex items-center gap-2 text-xs font-bold text-[#e4f0e6]"><Users size={15} className="text-[#efad7e]"/>RestaurantOS Staff</div><p className="mt-2 text-xs leading-5 text-[#b3c5b7]">Your daily operations, all in one place.</p></div>
   <button onClick={logout} className="mx-4 mb-5 flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-[#d7dfd8] hover:bg-white/10"><LogOut size={17}/>Sign out</button>
  </aside>
- <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-[#e9ebe5] bg-white/95 px-4 backdrop-blur sm:px-8"><div className="flex items-center gap-3"><button aria-label="Open navigation" className="rounded-xl border p-2.5 lg:hidden" onClick={()=>setOpen(true)}><Menu size={19}/></button><div><p className="text-[11px] text-[#899087]">Staff / {role}</p><p className="text-sm font-bold">{title}</p></div></div><span className="hidden truncate text-xs font-semibold text-[#788078] sm:block">{restaurant}</span></header><div className="min-w-0">{children}</div></div>
+ <div className="min-w-0 flex-1"><header className="sticky top-0 z-20 flex min-h-[76px] items-center justify-between gap-3 border-b border-[#e9ebe5] bg-white/95 px-4 backdrop-blur sm:px-8"><div className="flex items-center gap-3"><button aria-label="Open navigation" className="rounded-xl border p-2.5 lg:hidden" onClick={()=>setOpen(true)}><Menu size={19}/></button><div><p className="text-[11px] text-[#899087]">Staff / {role}</p><p className="text-sm font-bold">{title}</p></div></div><span className="hidden truncate text-xs font-semibold text-[#788078] sm:block">{restaurant}</span></header><div className="min-w-0"><StaffBootstrapContext.Provider value={bootstrap}>{children}</StaffBootstrapContext.Provider></div></div>
  </div>;
 }
