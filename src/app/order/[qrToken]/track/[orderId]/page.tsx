@@ -58,26 +58,26 @@ export default function TrackOrderPage() {
         <div className="eyebrow">Your order</div>
         <h1 className="mt-2 text-2xl font-bold">Track your food<span style={{color:"var(--guest-link)"}}>.</span></h1>
         {loading && !order ? <p className="mt-8 text-sm text-[var(--guest-muted)]">Loading your order…</p> :
-          !order ? <div className="mt-8"><p role="alert" className="text-sm text-[#a7442a]">{error || "Order not found."}</p><Link href={`/order/${encodeURIComponent(qrToken)}`} className="ghost-button mt-5 inline-block">Return to menu</Link></div> :
+          !order ? <div className="mt-8"><p role="alert" className="text-sm text-[var(--guest-danger)]">{error || "Order not found."}</p><Link href={`/order/${encodeURIComponent(qrToken)}`} className="ghost-button mt-5 inline-block">Return to menu</Link></div> :
           <>
             <div className="mt-6 rounded-xl bg-[var(--guest-soft)] p-4">
               <div className="text-xs text-[var(--guest-muted)]">Order number</div>
               <div className="mt-1 text-xl font-bold">{order.orderNumber}</div>
               <div className="mt-2 text-sm font-semibold">₹{Number(order.totalAmount).toFixed(2)}</div>
             </div>
-            {cancelled ? <p role="status" className="mt-6 rounded-xl bg-[#fbede7] p-4 text-sm font-semibold text-[#a7442a]">This order has been cancelled. Please speak to the restaurant team.</p> :
+            {cancelled ? <p role="status" className="mt-6 rounded-xl bg-[var(--guest-error-surface)] p-4 text-sm font-semibold text-[var(--guest-danger)]">This order has been cancelled. Please speak to the restaurant team.</p> :
               <ol aria-label="Order progress" className="mt-7 space-y-5">
                 {stages.map((stage, index) => {
                   const complete = index <= activeIndex;
                   return <li key={stage.key} aria-current={index === activeIndex ? "step" : undefined} className="flex gap-3">
-                    <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${complete ? "bg-[#eaf2e9] text-[#527a5b]" : "bg-[var(--guest-soft)] text-[var(--guest-muted)]"}`}>
+                    <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${complete ? "bg-[var(--guest-success-surface)] text-[var(--guest-success)]" : "bg-[var(--guest-soft)] text-[var(--guest-muted)]"}`}>
                       {complete ? <CheckCircle2 size={19} /> : <Clock3 size={18} />}
                     </div>
                     <div><div className={`text-sm font-bold ${complete ? "text-[var(--guest-text)]" : "text-[var(--guest-muted)]"}`}>{stage.label}</div><p className="mt-1 text-xs text-[var(--guest-muted)]">{stage.description}</p></div>
                   </li>;
                 })}
               </ol>}
-            {error && <p role="alert" className="mt-5 text-xs text-[#a7442a]">{error} Showing the last known status.</p>}
+            {error && <p role="alert" className="mt-5 text-xs text-[var(--guest-danger)]">{error} Showing the last known status.</p>}
             <div className="mt-7 flex items-center justify-between border-t border-[var(--guest-border)] pt-5">
               <p className="text-xs text-[var(--guest-muted)]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · use Refresh"}</p>
               <button onClick={() => setRefreshKey(key => key + 1)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={14} /> Refresh</button>

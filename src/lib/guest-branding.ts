@@ -34,7 +34,7 @@ function readable(color:string,backgrounds:string[],text:string,min=4.5){
 /** One palette, derived from the owner's three choices. Never colour critical status indicators by brand. */
 export function palette(b:Branding){
  const primary=validColor(b.primaryColor,"#1B241F"),accent=validColor(b.accentColor,"#E7764C"),background=validColor(b.backgroundColor,"#F7F7F4");
- const dark=foreground(background)==="#FFFFFF";
+ const dark=luminance(background)<.179;
  const surface=mix(background,"#FFFFFF",dark ? .055 : 1);
  const soft=mix(background,dark?"#FFFFFF":"#000000",dark ? .085 : .035);
  const tint=mix(surface,primary,dark ? .11 : .055);
@@ -47,16 +47,21 @@ export function palette(b:Branding){
  const muted=readable(mix(text,background,.38),bases,text);
  const link=readable(accent,bases,text);
  const primaryLink=readable(primary,bases,text);
+ const errorSurfaceCandidate=mix(safeSurface,"#B42318",dark ? .16 : .065),successSurfaceCandidate=mix(safeSurface,"#16834B",dark ? .16 : .065);
+ const errorSurface=contrast(text,errorSurfaceCandidate)>=4.5?errorSurfaceCandidate:safeSurface;
+ const successSurface=contrast(text,successSurfaceCandidate)>=4.5?successSurfaceCandidate:safeSurface;
+ const danger=readable(dark?"#FF9D96":"#B42318",[...bases,errorSurface],text);
+ const success=readable(dark?"#80D8A3":"#167744",[...bases,successSurface],text);
  const border=mix(safeSurface,text,dark ? .22 : .15);
  const strongBorder=readable(mix(safeSurface,text,.4),[safeSurface,background],text,3);
- return {primary,accent,background,text,primaryText:foreground(primary),accentText:foreground(accent),surface:safeSurface,soft:safeSoft,tint:safeTint,muted,link,primaryLink,border,strongBorder,overlay:"rgba(0,0,0,.62)",
+ return {primary,accent,background,text,primaryText:foreground(primary),accentText:foreground(accent),surface:safeSurface,soft:safeSoft,tint:safeTint,muted,link,primaryLink,border,strongBorder,danger,success,errorSurface,successSurface,overlay:"rgba(0,0,0,.62)",
   radius:b.theme==="MINIMAL"?"9px":b.theme==="BOLD"?"24px":"18px",
   headingFont:b.theme==="BOLD"?"Georgia, 'Times New Roman', serif":"inherit",
   shadow:dark?"0 6px 22px rgba(0,0,0,.24)":"0 5px 18px rgba(0,0,0,.065)"};
 }
 export function brandStyle(b:Branding):CSSProperties{
  const p=palette(b);
- return {"--guest-primary":p.primary,"--guest-primary-text":p.primaryText,"--guest-accent":p.accent,"--guest-accent-text":p.accentText,"--guest-bg":p.background,"--guest-text":p.text,"--guest-surface":p.surface,"--guest-soft":p.soft,"--guest-tint":p.tint,"--guest-muted":p.muted,"--guest-link":p.link,"--guest-primary-link":p.primaryLink,"--guest-border":p.border,"--guest-strong-border":p.strongBorder,"--guest-overlay":p.overlay,"--guest-radius":p.radius,"--guest-heading-font":p.headingFont,"--guest-shadow":p.shadow,backgroundColor:p.background,color:p.text,colorScheme:p.text==="#FFFFFF"?"dark":"light"} as CSSProperties;
+ return {"--guest-primary":p.primary,"--guest-primary-text":p.primaryText,"--guest-accent":p.accent,"--guest-accent-text":p.accentText,"--guest-bg":p.background,"--guest-text":p.text,"--guest-surface":p.surface,"--guest-soft":p.soft,"--guest-tint":p.tint,"--guest-muted":p.muted,"--guest-link":p.link,"--guest-primary-link":p.primaryLink,"--guest-border":p.border,"--guest-strong-border":p.strongBorder,"--guest-danger":p.danger,"--guest-success":p.success,"--guest-error-surface":p.errorSurface,"--guest-success-surface":p.successSurface,"--guest-overlay":p.overlay,"--guest-radius":p.radius,"--guest-heading-font":p.headingFont,"--guest-shadow":p.shadow,backgroundColor:p.background,color:p.text,colorScheme:p.text==="#FFFFFF"?"dark":"light"} as CSSProperties;
 }
 export function safeImage(url:string){if(/^\/api\/v1\/public\/guest-website\/images\/[0-9a-f-]{36}$/i.test(url))return (process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net").replace(/\/$/,"")+url;try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password?u.href:"";}catch{return "";}}
 
