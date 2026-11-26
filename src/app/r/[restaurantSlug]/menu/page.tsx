@@ -43,39 +43,39 @@ export default function RestaurantPublicMenuPage() {
   }, [params.restaurantSlug, searchParams]);
 
   const branding=resolveBranding(menu);
-  return <main className="min-h-screen" style={brandStyle(branding)}>
+  return <main className="guest-theme min-h-screen" style={brandStyle(branding)}>
     <header className="px-5 py-5 sm:px-8" style={{background:"var(--guest-primary)",color:"var(--guest-primary-text)"}}><div className="mx-auto max-w-3xl"><GuestBrandHeader branding={branding}/></div></header>
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8 sm:py-10">
-      {loading ? <div className="panel py-20 text-center text-sm text-[#99998f]">Loading menu…</div> :
-      error ? <div className="panel px-6 py-16 text-center"><Utensils className="mx-auto text-[#c65e3d]" size={26}/><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[#85867d]">{error}</p></div> :
+      {loading ? <div className="panel py-20 text-center text-sm text-[var(--guest-muted)]">Loading menu…</div> :
+      error ? <div className="panel px-6 py-16 text-center"><Utensils className="mx-auto text-[#c65e3d]" size={26}/><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[var(--guest-muted)]">{error}</p></div> :
       menu && <>
         <div className="mb-8">
           <GuestBrandHero branding={branding} compact/>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">{menu.restaurantName}<span className="text-[#E56A42]">.</span></h1>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">{menu.restaurantName}<span className="text-[var(--guest-link)]">.</span></h1>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className="inline-flex items-center gap-2 rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-3 py-2 text-xs text-[#55584f]"><MapPin size={14}/><span className="font-semibold">Branch</span>
+            <label className="inline-flex items-center gap-2 rounded-xl border border-[var(--guest-border)] bg-[var(--guest-surface)] px-3 py-2 text-xs text-[var(--guest-muted)]"><MapPin size={14}/><span className="font-semibold">Branch</span>
               <select aria-label="Select branch" className="max-w-[180px] bg-transparent font-semibold outline-none" value={menu.branchId} onChange={e=>router.push(`/r/${encodeURIComponent(menu.slug)}/menu?branchId=${encodeURIComponent(e.target.value)}`)}>
                 {menu.branches.map(branch=><option key={branch.id} value={branch.id}>{branch.name}</option>)}
               </select>
             </label>
-            <span className="text-xs text-[#85867d]">{menu.branchName}</span>
+            <span className="text-xs text-[var(--guest-muted)]">{menu.branchName}</span>
           </div>
-          <p className="mt-4 text-sm text-[#77796f]">Browse the menu at this branch. To place a dine-in order, scan your table’s QR code.</p>
+          <p className="mt-4 text-sm text-[var(--guest-muted)]">Browse the menu at this branch. To place a dine-in order, scan your table’s QR code.</p>
         </div>
-        {menu.categories.map(category=><section key={category.id} className="mb-5 overflow-hidden rounded-2xl border border-[#e9e5dc] bg-[#fffefa]">
-          <div className="border-b border-[#eeeae2] px-5 py-4"><h2 className="font-bold">{category.name}</h2>{category.description&&<p className="mt-1 text-xs text-[#99998f]">{category.description}</p>}</div>
-          {category.items.length===0 ? <p className="px-5 py-6 text-xs text-[#99998f]">No available items in this category.</p> :
-          <div className="divide-y divide-[#f0ede6]">{category.items.map(item=><article key={item.id} className="flex items-center gap-3 px-5 py-4">
+        {menu.categories.map(category=><section key={category.id} className="mb-5 overflow-hidden rounded-[var(--guest-radius)] border border-[var(--guest-border)] bg-[var(--guest-surface)]">
+          <div className="border-b border-[var(--guest-border)] px-5 py-4"><h2 className="font-bold">{category.name}</h2>{category.description&&<p className="mt-1 text-xs text-[var(--guest-muted)]">{category.description}</p>}</div>
+          {category.items.length===0 ? <p className="px-5 py-6 text-xs text-[var(--guest-muted)]">No available items in this category.</p> :
+          <div className="divide-y divide-[var(--guest-border)]">{category.items.map(item=><article key={item.id} className="flex items-center gap-3 px-5 py-4">
             <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-sm border-2 ${item.dietaryType==="VEG"?"border-[#527a5b]":item.dietaryType==="EGG"?"border-[#b88a37]":"border-[#c65e3d]"}`}/><h3 className="text-sm font-bold">{item.name}</h3></div>
-              {item.description&&<p className="mt-1 text-xs leading-5 text-[#85867d]">{item.description}</p>}
-              <div className="mt-2 text-sm font-bold">₹{Number(item.price).toFixed(2)} <span className="ml-1 text-[10px] font-normal text-[#99998f]">· {item.prepTimeMinutes} min</span></div>
+              {item.description&&<p className="mt-1 text-xs leading-5 text-[var(--guest-muted)]">{item.description}</p>}
+              <div className="mt-2 text-sm font-bold">₹{Number(item.price).toFixed(2)} <span className="ml-1 text-[10px] font-normal text-[var(--guest-muted)]">· {item.prepTimeMinutes} min</span></div>
             </div>
           </article>)}</div>}
         </section>)}
         <GuestBrandDetails branding={branding}/>
-        {menu.categories.length===0&&<div className="panel py-12 text-center text-sm text-[#99998f]">This restaurant has not published a menu yet.</div>}
+        {menu.categories.length===0&&<div className="panel py-12 text-center text-sm text-[var(--guest-muted)]">This restaurant has not published a menu yet.</div>}
       </>}
-      <p className="mt-8 text-center text-[10px] text-[#aaa99f]">Powered by RestaurantOS</p>
+      <p className="mt-8 text-center text-[10px] text-[var(--guest-muted)]">Powered by RestaurantOS</p>
     </div>
   </main>;
 }

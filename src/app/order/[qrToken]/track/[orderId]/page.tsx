@@ -52,16 +52,16 @@ export default function TrackOrderPage() {
   const activeIndex = stages.findIndex(stage => stage.key === order?.status);
   const cancelled = order?.status === "CANCELLED";
 
-  return <main className="min-h-screen pb-28" style={brandStyle(design)}><header style={{backgroundColor:accent,color:"var(--guest-primary-text)"}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{safeImage(design.logoUrl)?<img src={safeImage(design.logoUrl)} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
+  return <main className="guest-theme min-h-screen pb-28" style={brandStyle(design)}><header style={{backgroundColor:accent,color:"var(--guest-primary-text)"}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{safeImage(design.logoUrl)?<img src={safeImage(design.logoUrl)} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
     <div className="mx-auto max-w-lg">
       <section className="panel p-6 sm:p-8">
         <div className="eyebrow">Your order</div>
-        <h1 className="mt-2 text-2xl font-bold">Track your food<span style={{color:accent}}>.</span></h1>
-        {loading && !order ? <p className="mt-8 text-sm text-[#77796f]">Loading your order…</p> :
+        <h1 className="mt-2 text-2xl font-bold">Track your food<span style={{color:"var(--guest-link)"}}>.</span></h1>
+        {loading && !order ? <p className="mt-8 text-sm text-[var(--guest-muted)]">Loading your order…</p> :
           !order ? <div className="mt-8"><p role="alert" className="text-sm text-[#a7442a]">{error || "Order not found."}</p><Link href={`/order/${encodeURIComponent(qrToken)}`} className="ghost-button mt-5 inline-block">Return to menu</Link></div> :
           <>
-            <div className="mt-6 rounded-xl bg-[#f7f4ec] p-4">
-              <div className="text-xs text-[#77796f]">Order number</div>
+            <div className="mt-6 rounded-xl bg-[var(--guest-soft)] p-4">
+              <div className="text-xs text-[var(--guest-muted)]">Order number</div>
               <div className="mt-1 text-xl font-bold">{order.orderNumber}</div>
               <div className="mt-2 text-sm font-semibold">₹{Number(order.totalAmount).toFixed(2)}</div>
             </div>
@@ -70,22 +70,22 @@ export default function TrackOrderPage() {
                 {stages.map((stage, index) => {
                   const complete = index <= activeIndex;
                   return <li key={stage.key} aria-current={index === activeIndex ? "step" : undefined} className="flex gap-3">
-                    <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${complete ? "bg-[#eaf2e9] text-[#527a5b]" : "bg-[#efeee9] text-[#99998f]"}`}>
+                    <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-full ${complete ? "bg-[#eaf2e9] text-[#527a5b]" : "bg-[var(--guest-soft)] text-[var(--guest-muted)]"}`}>
                       {complete ? <CheckCircle2 size={19} /> : <Clock3 size={18} />}
                     </div>
-                    <div><div className={`text-sm font-bold ${complete ? "text-[#252922]" : "text-[#99998f]"}`}>{stage.label}</div><p className="mt-1 text-xs text-[#85867d]">{stage.description}</p></div>
+                    <div><div className={`text-sm font-bold ${complete ? "text-[var(--guest-text)]" : "text-[var(--guest-muted)]"}`}>{stage.label}</div><p className="mt-1 text-xs text-[var(--guest-muted)]">{stage.description}</p></div>
                   </li>;
                 })}
               </ol>}
             {error && <p role="alert" className="mt-5 text-xs text-[#a7442a]">{error} Showing the last known status.</p>}
-            <div className="mt-7 flex items-center justify-between border-t border-[#e9e5dc] pt-5">
-              <p className="text-xs text-[#99998f]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · use Refresh"}</p>
+            <div className="mt-7 flex items-center justify-between border-t border-[var(--guest-border)] pt-5">
+              <p className="text-xs text-[var(--guest-muted)]">{lastChecked ? "Updated " + lastChecked.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" }) : "Waiting for update"} · {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · use Refresh"}</p>
               <button onClick={() => setRefreshKey(key => key + 1)} className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold"><RefreshCw size={14} /> Refresh</button>
             </div>
           </>}
       </section>
-      <Link href={`/order/${encodeURIComponent(qrToken)}`} className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-[#77796f]"><Utensils size={15} /> Back to restaurant menu</Link>
-      <p className="mt-5 text-center text-xs text-[#99998f]">This order is saved in your browser history. Keep your order link private.</p>
-    </div></div><nav aria-label="Guest navigation" className="fixed inset-x-0 bottom-0 border-t border-[#e6dfd3] bg-white px-4 py-3"><div className="mx-auto grid max-w-lg grid-cols-3 gap-2">{[{label:"Home",icon:<Home size={19}/>,href:`/order/${encodeURIComponent(qrToken)}`},{label:"Menu",icon:<BookOpen size={19}/>,href:`/order/${encodeURIComponent(qrToken)}#guest-menu`},{label:"Orders",icon:<ReceiptText size={19}/>,href:`/order/${encodeURIComponent(qrToken)}?view=orders`}].map(n=><Link key={n.label} href={n.href} className="flex flex-col items-center gap-1 text-xs font-semibold text-[#514f43]">{n.icon}{n.label}</Link>)}</div></nav>
+      <Link href={`/order/${encodeURIComponent(qrToken)}`} className="mt-6 flex items-center justify-center gap-2 text-sm font-semibold text-[var(--guest-muted)]"><Utensils size={15} /> Back to restaurant menu</Link>
+      <p className="mt-5 text-center text-xs text-[var(--guest-muted)]">This order is saved in your browser history. Keep your order link private.</p>
+    </div></div><nav aria-label="Guest navigation" className="fixed inset-x-0 bottom-0 border-t border-[var(--guest-border)] bg-[var(--guest-surface)] px-4 py-3"><div className="mx-auto grid max-w-lg grid-cols-3 gap-2">{[{label:"Home",icon:<Home size={19}/>,href:`/order/${encodeURIComponent(qrToken)}`},{label:"Menu",icon:<BookOpen size={19}/>,href:`/order/${encodeURIComponent(qrToken)}#guest-menu`},{label:"Orders",icon:<ReceiptText size={19}/>,href:`/order/${encodeURIComponent(qrToken)}?view=orders`}].map(n=><Link key={n.label} href={n.href} className="flex flex-col items-center gap-1 text-xs font-semibold text-[var(--guest-muted)]">{n.icon}{n.label}</Link>)}</div></nav>
   </main>;
 }

@@ -8,7 +8,7 @@ export function GuestBrandHero({branding:b,tableName,onExplore,compact=false}:{b
   <div className={compact?"px-5 py-5":"min-h-52 px-6 py-6"} style={photo?{backgroundImage:'linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.38)),url("'+photo.replaceAll('"','%22')+'")',backgroundSize:"cover",backgroundPosition:"center",color:"#FFFFFF"}:undefined}>
    <p className="text-xs font-bold uppercase tracking-widest opacity-80">{tableName?"Welcome to "+tableName:"Welcome to our restaurant"}</p>
    <h1 className="mt-3 text-2xl font-extrabold">{b.bannerTitle||b.displayName}</h1>
-   <p className="mt-2 text-sm opacity-85">{b.bannerText||b.slogan||"Good food, made fresh for your table."}</p>
+   <p className="mt-2 text-sm opacity-100">{b.bannerText||b.slogan||"Good food, made fresh for your table."}</p>
    {onExplore&&<button type="button" onClick={onExplore} className="mt-5 rounded-xl px-5 py-3 text-sm font-bold" style={{background:"var(--guest-accent)",color:"var(--guest-accent-text)"}}>Explore full menu →</button>}
   </div>
  </section>;
@@ -19,5 +19,5 @@ export function GuestBrandHeader({branding:b}:{branding:Branding}){
 }
 export function GuestBrandDetails({branding:b}:{branding:Branding}){
  if(!b.showDetails||![b.about,b.contactPhone,b.address,b.openingHours].some(Boolean))return null;
- return <section className="mt-6 rounded-2xl border bg-white p-5 text-[#20241f]"><h2 className="font-bold">About our restaurant</h2>{b.about&&<p className="mt-2 whitespace-pre-line text-sm">{b.about}</p>}{b.address&&<p className="mt-3 text-sm"><strong>Address: </strong>{b.address}</p>}{b.openingHours&&<p className="mt-2 text-sm"><strong>Opening hours: </strong>{b.openingHours}</p>}{b.contactPhone&&<p className="mt-2 text-sm"><strong>Contact: </strong>{b.contactPhone}</p>}</section>;
+ return <section className="mt-6 rounded-[var(--guest-radius)] border bg-[var(--guest-surface)] p-5 text-[var(--guest-muted)]"><h2 className="font-bold">About our restaurant</h2>{b.about&&<p className="mt-2 whitespace-pre-line text-sm">{b.about}</p>}{b.address&&<p className="mt-3 text-sm"><strong>Address: </strong>{b.address}</p>}{b.openingHours&&<p className="mt-2 text-sm"><strong>Opening hours: </strong>{b.openingHours}</p>}{b.contactPhone&&<p className="mt-2 text-sm"><strong>Contact: </strong>{b.contactPhone}</p>}</section>;
 }

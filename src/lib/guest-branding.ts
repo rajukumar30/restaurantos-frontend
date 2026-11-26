@@ -18,13 +18,45 @@ export function resolveBranding(menu:Legacy|null):Branding{
  return {...defaults,theme,...presets[theme],slogan:menu?.slogan||"",logoUrl:menu?.logoUrl||"",bannerUrl:menu?.bannerUrl||""};
 }
 export function validColor(color:string,fallback:string){return /^#[0-9a-f]{6}$/i.test(color)?color:fallback;}
+type RGB=[number,number,number];
+function rgb(hex:string):RGB{return [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16)) as RGB;}
+export function luminance(hex:string){const [r,g,b]=rgb(hex).map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*r+.7152*g+.0722*b;}
+export function contrast(a:string,b:string){const x=luminance(a),y=luminance(b);return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);}
+function mix(a:string,b:string,amount:number){const x=rgb(a),y=rgb(b);return "#"+x.map((v,i)=>Math.round(v+(y[i]-v)*amount).toString(16).padStart(2,"0")).join("");}
 export function foreground(color:string){
- const c=validColor(color,"#1B241F").slice(1).match(/../g)!.map(x=>parseInt(x,16)/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4);
- return .2126*c[0]+.7152*c[1]+.0722*c[2]>.179?"#151915":"#FFFFFF";
+ const bg=validColor(color,"#1B241F"),preferred=contrast(bg,"#20241F")>=4.5?"#20241F":"#FFFFFF";
+ return contrast(bg,preferred)>=4.5?preferred:contrast(bg,"#000000")>=contrast(bg,"#FFFFFF")?"#000000":"#FFFFFF";
+}
+function readable(color:string,backgrounds:string[],text:string,min=4.5){
+ for(let i=0;i<=20;i++){const candidate=mix(color,text,i/20);if(backgrounds.every(bg=>contrast(candidate,bg)>=min))return candidate;}
+ return text;
+}
+/** One palette, derived from the owner's three choices. Never colour critical status indicators by brand. */
+export function palette(b:Branding){
+ const primary=validColor(b.primaryColor,"#1B241F"),accent=validColor(b.accentColor,"#E7764C"),background=validColor(b.backgroundColor,"#F7F7F4");
+ const dark=foreground(background)==="#FFFFFF";
+ const surface=mix(background,"#FFFFFF",dark ? .055 : 1);
+ const soft=mix(background,dark?"#FFFFFF":"#000000",dark ? .085 : .035);
+ const tint=mix(surface,primary,dark ? .11 : .055);
+ const text=foreground(background);
+ // Keep body and surface contrast consistent for custom mid-tone backgrounds as well.
+ const safeSurface=contrast(text,surface)>=4.5?surface:background;
+ const safeSoft=contrast(text,soft)>=4.5?soft:background;
+ const safeTint=contrast(text,tint)>=4.5?tint:background;
+ const bases=[background,safeSurface,safeSoft,safeTint];
+ const muted=readable(mix(text,background,.38),bases,text);
+ const link=readable(accent,bases,text);
+ const primaryLink=readable(primary,bases,text);
+ const border=mix(safeSurface,text,dark ? .22 : .15);
+ const strongBorder=readable(mix(safeSurface,text,.4),[safeSurface,background],text,3);
+ return {primary,accent,background,text,primaryText:foreground(primary),accentText:foreground(accent),surface:safeSurface,soft:safeSoft,tint:safeTint,muted,link,primaryLink,border,strongBorder,overlay:"rgba(0,0,0,.62)",
+  radius:b.theme==="MINIMAL"?"9px":b.theme==="BOLD"?"24px":"18px",
+  headingFont:b.theme==="BOLD"?"Georgia, 'Times New Roman', serif":"inherit",
+  shadow:dark?"0 6px 22px rgba(0,0,0,.24)":"0 5px 18px rgba(0,0,0,.065)"};
 }
 export function brandStyle(b:Branding):CSSProperties{
- const primary=validColor(b.primaryColor,"#1B241F"),accent=validColor(b.accentColor,"#E7764C"),background=validColor(b.backgroundColor,"#F7F7F4");
- return {"--guest-primary":primary,"--guest-primary-text":foreground(primary),"--guest-accent":accent,"--guest-accent-text":foreground(accent),"--guest-bg":background,"--guest-text":foreground(background),"--guest-radius":b.theme==="MINIMAL"?"8px":b.theme==="BOLD"?"28px":"18px",backgroundColor:background,color:foreground(background)} as CSSProperties;
+ const p=palette(b);
+ return {"--guest-primary":p.primary,"--guest-primary-text":p.primaryText,"--guest-accent":p.accent,"--guest-accent-text":p.accentText,"--guest-bg":p.background,"--guest-text":p.text,"--guest-surface":p.surface,"--guest-soft":p.soft,"--guest-tint":p.tint,"--guest-muted":p.muted,"--guest-link":p.link,"--guest-primary-link":p.primaryLink,"--guest-border":p.border,"--guest-strong-border":p.strongBorder,"--guest-overlay":p.overlay,"--guest-radius":p.radius,"--guest-heading-font":p.headingFont,"--guest-shadow":p.shadow,backgroundColor:p.background,color:p.text,colorScheme:p.text==="#FFFFFF"?"dark":"light"} as CSSProperties;
 }
 export function safeImage(url:string){if(/^\/api\/v1\/public\/guest-website\/images\/[0-9a-f-]{36}$/i.test(url))return (process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net").replace(/\/$/,"")+url;try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password?u.href:"";}catch{return "";}}
 
