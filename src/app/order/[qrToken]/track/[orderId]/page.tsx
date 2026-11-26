@@ -7,7 +7,7 @@ import {orderProgress} from "@/lib/guest-order-progress";
 import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import Link from "next/link";
 import {useParams} from "next/navigation";
-import {ArrowRight,Check,Clock3,RefreshCw,ShoppingBag,ChefHat,HandPlatter,CircleAlert} from "lucide-react";
+import {ArrowLeft,ArrowRight,Check,Clock3,RefreshCw,ShoppingBag,ChefHat,HandPlatter,CircleAlert} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type OrderStatus={orderNumber:string;status:string;totalAmount:number;createdAt:string};
 type MenuBranding={restaurantName:string;logoUrl?:string;theme?:string;tableName?:string;branding?:Branding};
@@ -47,6 +47,7 @@ export default function TrackOrderPage(){
  return <main className="guest-theme min-h-screen pb-28" style={brandStyle(design)}>
   <GuestPageHeader branding={design} tableName={branding?.tableName}/>
   <div className="mx-auto max-w-lg px-4 py-6">
+   <Link href={guestViewHref(qrToken,"orders")} className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-lg px-1 text-sm font-semibold text-[var(--guest-primary-link)]"><ArrowLeft size={18} aria-hidden="true"/> Back to orders</Link>
    <div className="mb-5 flex items-end justify-between gap-2"><div><p className="text-[10px] font-semibold uppercase tracking-[.15em] text-[var(--guest-link)]">Your order</p><h1 className="mt-1 text-2xl font-bold">Track your order</h1></div><span className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--guest-surface)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--guest-muted)]"><span className={"h-2 w-2 rounded-full "+(connected?"bg-[var(--guest-success)]":"bg-[var(--guest-muted)]")}/>{connected?"Live":live==="connecting"?"Connecting":"Offline"}</span></div>
    {loading&&!order?<section className="panel p-6 text-sm text-[var(--guest-muted)]">Loading your order…</section>:!order?<section className="panel p-6"><p role="alert" className="text-sm text-[var(--guest-danger)]">{error||"Order not found."}</p><button onClick={refresh} disabled={refreshing} className="ghost-button mt-4 inline-flex items-center gap-2"><RefreshCw size={15}/>{refreshing?"Checking…":"Try again"}</button></section>:<>
     <section className="overflow-hidden rounded-[var(--guest-radius)] shadow-sm" style={{background:"var(--guest-primary)",color:"var(--guest-primary-text)"}}>
