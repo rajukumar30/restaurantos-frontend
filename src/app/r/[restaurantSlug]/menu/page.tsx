@@ -44,7 +44,7 @@ export default function RestaurantPublicMenuPage() {
 
   const branding=resolveBranding(menu);
   return <main className="guest-theme min-h-screen" style={brandStyle(branding)}>
-    <header className="px-5 py-5 sm:px-8" style={{background:"var(--guest-primary)",color:"var(--guest-primary-text)"}}><div className="mx-auto max-w-3xl"><GuestBrandHeader branding={branding}/></div></header>
+    <header className="guest-header px-5 py-4 sm:px-8"><div className="mx-auto max-w-3xl"><GuestBrandHeader branding={branding}/></div></header>
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8 sm:py-10">
       {loading ? <div className="panel py-20 text-center text-sm text-[var(--guest-muted)]">Loading menu…</div> :
       error ? <div className="panel px-6 py-16 text-center"><Utensils className="mx-auto text-[var(--guest-danger)]" size={26}/><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[var(--guest-muted)]">{error}</p></div> :
