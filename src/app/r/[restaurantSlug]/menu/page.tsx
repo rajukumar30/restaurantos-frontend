@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import {type Branding,resolveBranding,brandStyle,menuThumbnail} from "@/lib/guest-branding";
+import {type Branding,resolveBranding,brandStyle,menuThumbnail,fallbackMenuThumbnail} from "@/lib/guest-branding";
 import {GuestPageHeader,GuestBrandHero,GuestBrandDetails} from "@/components/guest-branding";
 import { Utensils, MapPin } from "lucide-react";
 
@@ -66,7 +66,7 @@ export default function RestaurantPublicMenuPage() {
           <div className="border-b border-[var(--guest-border)] px-5 py-4"><h2 className="font-bold">{category.name}</h2>{category.description&&<p className="mt-1 text-xs text-[var(--guest-muted)]">{category.description}</p>}</div>
           {category.items.length===0 ? <p className="px-5 py-6 text-xs text-[var(--guest-muted)]">No available items in this category.</p> :
           <div className="divide-y divide-[var(--guest-border)]">{category.items.map(item=><article key={item.id} className="flex items-center gap-3 px-5 py-4">
-            {item.imageUrl&&<img src={menuThumbnail(item.imageUrl)} alt={item.name} loading="lazy" decoding="async" className="h-16 w-20 shrink-0 rounded-lg object-cover"/>}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-sm border-2 ${item.dietaryType==="VEG"?"border-[#527a5b]":item.dietaryType==="EGG"?"border-[#b88a37]":"border-[#c65e3d]"}`}/><h3 className="text-sm font-bold">{item.name}</h3></div>
+            {item.imageUrl&&<img src={menuThumbnail(item.imageUrl)} onError={e=>fallbackMenuThumbnail(e.currentTarget,item.imageUrl!)} alt={item.name} loading="lazy" decoding="async" className="h-16 w-20 shrink-0 rounded-lg object-cover"/>}<div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-sm border-2 ${item.dietaryType==="VEG"?"border-[#527a5b]":item.dietaryType==="EGG"?"border-[#b88a37]":"border-[#c65e3d]"}`}/><h3 className="text-sm font-bold">{item.name}</h3></div>
               {item.description&&<p className="mt-1 text-xs leading-5 text-[var(--guest-muted)]">{item.description}</p>}
               <div className="mt-2 text-sm font-bold">₹{Number(item.price).toFixed(2)} <span className="ml-1 text-[10px] font-normal text-[var(--guest-muted)]">· {item.prepTimeMinutes} min</span></div>
             </div>

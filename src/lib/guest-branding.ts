@@ -89,3 +89,9 @@ export function menuThumbnail(url:string){
  if(/^\/api\/v1\/public\/menu\/images\/[0-9a-f-]{36}$/i.test(url))return safeImage(url)+"/thumbnail";
  return safeImage(url);
 }
+
+/** During a rolling deployment, the previous backend may not yet expose the thumbnail endpoint. */
+export function fallbackMenuThumbnail(image:HTMLImageElement,url:string){
+ const original=safeImage(url);
+ if(original&&image.getAttribute("src")!==original){image.src=original;}
+}
