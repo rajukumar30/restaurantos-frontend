@@ -19,7 +19,7 @@ jobs:
       - name: Type check
         run: npm run typecheck
       - name: Verify theme contrast
-        run: node --test tests/guest-theme.test.cjs
+        run: node --test tests/guest-theme.test.mjs
       - name: Lint
         run: npm run lint
       - name: Production build

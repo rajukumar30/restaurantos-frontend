@@ -1,8 +1,8 @@
-const {test}=require("node:test");
-const assert=require("node:assert/strict");
-const fs=require("node:fs");
-const ts=require("typescript");
-const Module=require("node:module");
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import ts from "typescript";
+import Module from "node:module";
 const source=fs.readFileSync("src/lib/guest-branding.ts","utf8");
 const m=new Module("guest-branding");m._compile(ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,"guest-branding.js");
 const {palette,presets,defaultBranding,contrast}=m.exports;
