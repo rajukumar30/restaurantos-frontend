@@ -1,124 +1,91 @@
 "use client";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ChefHat, Clock3, RefreshCw, Search, Utensils } from "lucide-react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
+import {ArrowLeft,CalendarDays,ChefHat,ChevronLeft,ChevronRight,Clock3,RefreshCw,Search,Store,X} from "lucide-react";
 import Link from "next/link";
-import { useOrderEvents } from "@/lib/realtime/use-order-events";
-import { usePathname, useRouter } from "next/navigation";
-
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://restaurantos-backend-kz2r.onrender.com";
+import {usePathname,useRouter} from "next/navigation";
+import {useOrderEvents} from "@/lib/realtime/use-order-events";
+import {useOptimisticStatus} from "@/lib/use-optimistic-status";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Membership={tenantId:string;tenantName:string;roles:string};
 type Branch={id:string;name:string;branchCode:string};
 type Order={id:string;orderNumber:string;tableName:string;status:string;totalAmount:number;lineCount:number;itemCount:number;itemsSummary:string;createdAt:string};
-const filters=["ALL","NEW","ACCEPTED","PREPARING","READY","SERVED","CANCELLED"];
+type Snapshot={date:string;today:string;timezone:string;mode:string;counts:Record<string,number>;activeQueue:number;olderActive:number;items:Order[];total:number;page:number;size:number};
+const states=["ALL","NEW","ACCEPTED","PREPARING","READY","SERVED","CANCELLED"];
 const nextStatus:Record<string,string>={NEW:"ACCEPTED",ACCEPTED:"PREPARING",PREPARING:"READY",READY:"SERVED"};
-const statusLabel:Record<string,string>={NEW:"New order",ACCEPTED:"Accepted",PREPARING:"Preparing",READY:"Ready",SERVED:"Served",CANCELLED:"Cancelled"};
-const tone:Record<string,string>={NEW:"bg-[#fbede7] text-[#c65e3d]",ACCEPTED:"bg-[#eaf0f6] text-[#55799c]",PREPARING:"bg-[#f8f0dc] text-[#98752d]",READY:"bg-[#eaf2e9] text-[#527a5b]",SERVED:"bg-[#efeee9] text-[#77796f]",CANCELLED:"bg-[#f2e8e8] text-[#a34e4e]"};
-
+const label:Record<string,string>={ALL:"All",NEW:"New",ACCEPTED:"Accepted",PREPARING:"Preparing",READY:"Ready",SERVED:"Served",CANCELLED:"Cancelled"};
+const action:Record<string,string>={NEW:"Accept",ACCEPTED:"Start preparing",PREPARING:"Mark ready",READY:"Mark served"};
+const tone:Record<string,string>={NEW:"bg-[#fbede7] text-[#a34c2e]",ACCEPTED:"bg-[#eaf0f6] text-[#456a8b]",PREPARING:"bg-[#f8f0dc] text-[#84641f]",READY:"bg-[#eaf2e9] text-[#426a4b]",SERVED:"bg-[#efeee9] text-[#62675d]",CANCELLED:"bg-[#f2e8e8] text-[#a34e4e]"};
+const button="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#dfe3d9] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-50";
+const primary="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#dc6944] px-3 py-2 text-xs font-bold text-white disabled:opacity-50";
+const money=(n:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(n);
+function offsetDay(date:string,delta:number){const value=new Date(date+"T12:00:00Z");value.setUTCDate(value.getUTCDate()+delta);return value.toISOString().slice(0,10);}
+function prettyDay(date:string){return new Intl.DateTimeFormat("en-IN",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));}
+function localDay(value:string,timezone:string){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value));return ["year","month","day"].map(t=>parts.find(p=>p.type===t)?.value).join("-");}
 export default function OrdersPage(){
- const ownerRoute=usePathname().startsWith("/owner");
-  const router=useRouter();
-  const [token,setToken]=useState("");
-  const [memberships,setMemberships]=useState<Membership[]>([]);
-  const [tenantId,setTenantId]=useState("");
-  const [branches,setBranches]=useState<Branch[]>([]);
-  const [branchId,setBranchId]=useState("");
-  const [orders,setOrders]=useState<Order[]>([]);
-  const [filter,setFilter]=useState("ALL");
-  const [search,setSearch]=useState("");
-  const [loading,setLoading]=useState(true);
-  const [updating,setUpdating]=useState("");
-  const [error,setError]=useState("");
-  const [lastUpdated,setLastUpdated]=useState<Date|null>(null);
-  const requestSequence=useRef(0);
-  const activeRequest=useRef<AbortController|null>(null);
-
-  useEffect(()=>{
-    const accessToken=localStorage.getItem("restaurantos_access_token")??"";
-    const raw=localStorage.getItem("restaurantos_user");
-    if(!accessToken||!raw){router.replace("/login");return;}
-    try{const user=JSON.parse(raw);const list:Membership[]=user.memberships??[];if(!list.length){router.replace("/login");return;}setToken(accessToken);setMemberships(list);setTenantId(list[0].tenantId);}
-    catch{router.replace("/login");}
-  },[router]);
-
-  useEffect(()=>{
-    if(!token||!tenantId)return;let cancelled=false;
-    async function loadBranches(){
-      try{const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/branches",{headers:{Authorization:"Bearer "+token}});const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Unable to load branches.");if(!cancelled){setBranches(payload.data);setBranchId(current=>payload.data.some((b:Branch)=>b.id===current)?current:(payload.data[0]?.id??""));}}
-      catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load branches.");}
-    }
-    loadBranches();return()=>{cancelled=true;};
-  },[token,tenantId]);
-
-  const loadOrders=useCallback(async(showLoader=false)=>{
-    if(!token||!tenantId||!branchId)return;
-    const sequence=++requestSequence.current;
-    activeRequest.current?.abort();
-    const controller=new AbortController();
-    activeRequest.current=controller;
-    if(showLoader)setLoading(true);
-    try{
-      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders?branchId="+branchId,{headers:{Authorization:"Bearer "+token},cache:"no-store",signal:controller.signal});
-      const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Unable to load orders.");
-      if(sequence!==requestSequence.current)return;
-      setOrders(payload.data);setLastUpdated(new Date());setError("");
-    }catch(e){if(sequence===requestSequence.current && !controller.signal.aborted)setError(e instanceof Error?e.message:"Unable to load orders.");}
-    finally{if(sequence===requestSequence.current){activeRequest.current=null;setLoading(false);}}
-  },[token,tenantId,branchId]);
-
-  useEffect(()=>{if(!branchId)return;void loadOrders(true);return()=>{requestSequence.current++;activeRequest.current?.abort();};},[branchId,loadOrders]);
-  const refreshChangedOrder=useCallback(async(orderId?:string)=>{
-    if(!orderId){void loadOrders(false);return;}
-    try{
-      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders/"+encodeURIComponent(orderId)+"?branchId="+encodeURIComponent(branchId),{
-        headers:{Authorization:"Bearer "+token},cache:"no-store"
-      });
-      if(response.status===404){void loadOrders(false);return;}
-      const payload=await response.json();
-      if(!response.ok||!payload.success)throw new Error("Unable to refresh order");
-      const updated=payload.data as Order;
-      setOrders(current=>{
-        const index=current.findIndex(order=>order.id===updated.id);
-        if(index<0)return [updated,...current].sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100);
-        return current.map(order=>order.id===updated.id?updated:order);
-      });
-      setLastUpdated(new Date());
-    }catch{void loadOrders(false);}
-  },[token,tenantId,branchId,loadOrders]);
-  const realtimeStatus=useOrderEvents(token,tenantId,branchId,refreshChangedOrder);
-  useEffect(()=>{if(!branchId||realtimeStatus==="connected")return;const onFocus=()=>{if(document.visibilityState==="visible")void loadOrders(false);};window.addEventListener("focus",onFocus);return()=>window.removeEventListener("focus",onFocus);},[branchId,realtimeStatus,loadOrders]);
-
-  async function updateStatus(order:Order,status:string){
-    setUpdating(order.id);setError("");
-    try{
-      const response=await fetch(API+"/api/v1/tenants/"+tenantId+"/orders/"+order.id+"/status",{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:"Bearer "+token},body:JSON.stringify({branchId,status})});
-      const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not update order.");
-      await loadOrders(false);
-    }catch(e){setError(e instanceof Error?e.message:"Unable to update order.");}
-    finally{setUpdating("");}
-  }
-
-  const visible=useMemo(()=>orders.filter(order=>(filter==="ALL"||order.status===filter)&&((order.orderNumber+" "+order.tableName+" "+order.itemsSummary).toLowerCase().includes(search.toLowerCase()))),[orders,filter,search]);
-  const counts=useMemo(()=>Object.fromEntries(filters.map(key=>[key,key==="ALL"?orders.length:orders.filter(o=>o.status===key).length])),[orders]);
-  const pending=orders.filter(o=>["NEW","ACCEPTED","PREPARING","READY"].includes(o.status)).length;
-  const money=(value:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:0}).format(value);
-  const time=(value:string)=>new Intl.DateTimeFormat("en-IN",{hour:"numeric",minute:"2-digit"}).format(new Date(value));
-  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
-
-  return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Orders & kitchen</div></div></div><div className="flex gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button hidden sm:block">Sign out</button></div></header>
-    <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-10">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"><div><div className="eyebrow">Workspace / Order operations</div><h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">Orders & kitchen<span className="text-[#E56A42]">.</span></h1><p className="mt-3 text-sm text-[#77796f]">Track incoming orders and move them through the kitchen workflow.</p></div><div className="flex items-center gap-3"><div className="text-right"><div className="text-xs font-semibold">{lastUpdated?"Updated "+time(lastUpdated.toISOString()):"Waiting for updates"}</div><div className="mt-1 text-[10px] text-[#99998f]">WebSocket: {realtimeStatus==="connected"?"Live":realtimeStatus==="connecting"?"Connecting":"Offline · manual refresh available"}</div></div><button onClick={()=>loadOrders(true)} className="ghost-button inline-flex items-center gap-2"><RefreshCw size={14}/> Refresh</button></div></div>
-      <div className="mb-6 flex flex-wrap items-center gap-3"><label className="text-xs text-[#77796f]">Restaurant</label><select value={tenantId} onChange={e=>{setTenantId(e.target.value);setBranchId("");}} className="ghost-button">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select><label className="ml-2 text-xs text-[#77796f]">Branch</label><select value={branchId} onChange={e=>setBranchId(e.target.value)} className="ghost-button"><option value="">Select branch</option>{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Recent orders" value={orders.length}/><Metric label="Active queue" value={pending}/><Metric label="New orders" value={orders.filter(o=>o.status==="NEW").length}/><Metric label="Ready to serve" value={orders.filter(o=>o.status==="READY").length}/></div>
-      {error&&<div role="alert" className="mb-5 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
-      <section className="panel overflow-hidden">
-        <div className="flex flex-col gap-4 border-b border-[#eeeae2] p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div><div className="flex items-center gap-2"><ChefHat size={18} className="text-[#d36a45]"/><h2 className="font-bold">Kitchen queue</h2></div><p className="mt-1 text-xs text-[#99998f]">Newest orders appear first</p></div><div className="relative w-full sm:max-w-xs"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#99998f]"/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search order, table or item…" className="w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] py-2.5 pl-9 pr-3 text-xs outline-none focus:border-[#d68b6d]"/></div></div>
-        <div className="flex gap-2 overflow-x-auto border-b border-[#eeeae2] px-5 py-3 sm:px-6">{filters.map(key=><button key={key} onClick={()=>setFilter(key)} className={"shrink-0 rounded-full px-3 py-2 text-[10px] font-bold transition "+(filter===key?"bg-[#252922] text-white":"bg-[#f4f1e9] text-[#77796f] hover:bg-[#ebe7de]")}>{key==="ALL"?"All":statusLabel[key]} <span className="ml-1 opacity-70">{counts[key]??0}</span></button>)}</div>
-        {loading?<div className="py-20 text-center text-sm text-[#99998f]">Loading order queue…</div>:!branchId?<div className="py-20 text-center"><Utensils className="mx-auto text-[#c3bcae]" size={25}/><p className="mt-3 text-sm font-semibold">Choose a branch</p><p className="mt-1 text-xs text-[#99998f]">Select a branch to see its orders.</p></div>:visible.length===0?<div className="py-20 text-center"><div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#f5eee5] text-[#d36a45]"><ChefHat size={21}/></div><p className="mt-4 text-sm font-semibold">No orders in this view</p><p className="mt-1 text-xs text-[#99998f]">New QR orders will appear here automatically.</p></div>:<div className="grid gap-3 p-4 sm:p-5 lg:grid-cols-2">{visible.map(order=><article key={order.id} className="rounded-xl border border-[#e9e5dc] bg-[#fffefa] p-4 sm:p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-bold uppercase tracking-[.13em] text-[#99998f]">{order.orderNumber}</div><h3 className="mt-1 text-lg font-bold">{order.tableName}</h3></div><span className={"rounded-full px-2.5 py-1 text-[10px] font-bold "+(tone[order.status]??tone.NEW)}>{statusLabel[order.status]??order.status}</span></div><div className="mt-4 rounded-lg bg-[#f7f4ec] px-3 py-3"><div className="text-[10px] font-bold uppercase tracking-wider text-[#99998f]">Items · {order.itemCount} units</div><p className="mt-1 text-xs leading-5 text-[#55584f]">{order.itemsSummary||"Order items"}</p></div><div className="mt-4 flex items-center justify-between gap-3"><div><div className="text-base font-bold">{money(Number(order.totalAmount))}</div><div className="mt-1 flex items-center gap-1 text-[10px] text-[#99998f]"><Clock3 size={11}/>{time(order.createdAt)} · {order.lineCount} lines</div></div>{nextStatus[order.status]?<button disabled={updating===order.id} onClick={()=>updateStatus(order,nextStatus[order.status])} className="primary-button disabled:opacity-50">{updating===order.id?"Updating…":({NEW:"Accept order",ACCEPTED:"Start preparing",PREPARING:"Mark ready",READY:"Mark served"} as Record<string,string>)[order.status]}</button>:order.status==="SERVED"?<span className="text-[10px] font-semibold text-[#527a5b]">Completed</span>:<span className="text-[10px] text-[#99998f]">No further action</span>}</div></article>)}</div>}
-      </section>
-      <p className="mt-6 text-center text-[10px] text-[#aaa99f]">Orders update through a secure live connection. Use Refresh when offline.</p>
-    </div>
-  </main>;
+ const pathname=usePathname(),router=useRouter(),embedded=pathname.startsWith("/owner")||pathname.startsWith("/staff");
+ const [token,setToken]=useState(""),[memberships,setMemberships]=useState<Membership[]>([]),[tenant,setTenant]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branch,setBranch]=useState("");
+ const [mode,setMode]=useState<"day"|"live">("day"),[date,setDate]=useState(""),[status,setStatus]=useState("ALL"),[search,setSearch]=useState(""),[query,setQuery]=useState(""),[page,setPage]=useState(1);
+ const [data,setData]=useState<Snapshot|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[updated,setUpdated]=useState<Date|null>(null),[details,setDetails]=useState<string|null>(null),[retryBranches,setRetryBranches]=useState(0);
+ const sequence=useRef(0),controller=useRef<AbortController|null>(null),queued=useRef(false),running=useRef(false);
+ const scope=tenant+":"+branch+":"+mode+":"+date+":"+status+":"+query+":"+page;
+ const scopeRef=useRef(scope);scopeRef.current=scope;
+ const snapScope=useRef("");
+ useEffect(()=>{const access=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!access||!raw){router.replace("/login");return;}try{const list:Membership[]=JSON.parse(raw).memberships??[];if(!list.length){router.replace("/login");return;}setToken(access);setMemberships(list);setTenant(list[0].tenantId);}catch{router.replace("/login");}},[router]);
+ const request=useCallback(async(path:string,options:RequestInit={})=>{const r=await fetch(API+"/api/v1/tenants/"+encodeURIComponent(tenant)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});if(r.status===401){router.replace("/login");throw Error("Session expired. Sign in again.");}const p=await r.json();if(!r.ok||!p.success)throw Error(p.detail||p.message||"Unable to load orders.");return p.data;},[tenant,token,router]);
+ useEffect(()=>{if(!tenant||!token)return;const abort=new AbortController();setLoading(true);setBranches([]);setBranch("");setData(null);setError("");request(embedded&&pathname.startsWith("/staff")?"/staff-operations/branches":"/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){setBranches(rows);setBranch(rows[0]?.id||"");if(!rows.length)setLoading(false);}}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false);}});return()=>abort.abort();},[tenant,token,request,embedded,pathname,retryBranches]);
+ useEffect(()=>{const timer=setTimeout(()=>{setQuery(search.trim());setPage(1);},250);return()=>clearTimeout(timer);},[search]);
+ const load=useCallback(async(showLoader=false)=>{
+  if(!token||!tenant||!branch)return;
+  if(running.current){queued.current=true;return;}
+  running.current=true;const id=++sequence.current;const expected=scope;const abort=new AbortController();controller.current=abort;
+  if(showLoader)setLoading(true);
+  const params=new URLSearchParams({branchId:branch,mode,status,search:query,page:String(page),size:"20"});if(date&&mode==="day")params.set("date",date);
+  try{const next:Snapshot=await request("/orders/workspace?"+params,{signal:abort.signal});if(id!==sequence.current||scopeRef.current!==expected)return;snapScope.current=expected;setData(next);setError("");setUpdated(new Date());}
+  catch(e){if(!abort.signal.aborted&&scopeRef.current===expected)setError(e instanceof Error?e.message:"Unable to load orders.");}
+  finally{if(id===sequence.current){running.current=false;controller.current=null;if(scopeRef.current===expected){setLoading(false);if(queued.current){queued.current=false;void load(false);}}}}
+ },[token,tenant,branch,mode,status,query,page,date,scope,request]);
+ useEffect(()=>{sequence.current++;controller.current?.abort();running.current=false;queued.current=false;setDetails(null);if(branch)void load(true);return()=>{sequence.current++;controller.current?.abort();running.current=false;queued.current=false;};},[load,branch]);
+ const live=useOrderEvents(token,tenant,branch,async()=>{await load(false);});
+ const confirmed=useMemo(()=>snapScope.current===scope?data?.items??[]:[],[data,scope]);
+ const optimistic=useOptimisticStatus(scope,confirmed);
+ const activeRows=optimistic.rows.filter(o=>(mode!=="live"||!!nextStatus[o.status])&&(status==="ALL"||o.status===status));
+ const currentDate=mode==="day"?(date||data?.today||data?.date||""):data?.today||"";
+ const tz=data?.timezone||"Asia/Kolkata";
+ const time=(value:string)=>new Intl.DateTimeFormat("en-IN",{timeZone:tz,hour:"numeric",minute:"2-digit"}).format(new Date(value));
+ const counts=data?.counts??{};const branchName=branches.find(b=>b.id===branch)?.name||"Select branch";
+ const countPages=Math.max(1,Math.ceil((data?.total??0)/20)),currentPage=data?.page??page;
+ function changeMode(next:"day"|"live"){setMode(next);setStatus("ALL");setPage(1);setDetails(null);}
+ function chooseDate(value:string){if(!value)return;setDate(value===data?.today?"":value);setMode("day");setPage(1);setStatus("ALL");}
+ function chooseStatus(value:string){setStatus(value);setPage(1);}
+ function resetScope(){setDate("");setMode("day");setStatus("ALL");setSearch("");setQuery("");setPage(1);setData(null);setDetails(null);setError("");setUpdated(null);}
+ function mutate(order:Order){const target=nextStatus[order.status];if(!target||optimistic.pending.size>=4)return;setError("");void optimistic.run(order,target,async signal=>request("/orders/"+order.id+"/status",{method:"PATCH",signal,headers:{"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status:target})}),next=>setData(old=>old&&snapScope.current===scope?{...old,items:old.items.map(o=>o.id===order.id?{...o,status:next}:o)}:old),()=>{void load(false);},e=>setError(e instanceof Error?e.message:"Order update failed. Refresh before retrying."));}
+ const available=!!branch&&!!data;
+ const history=mode==="day"&&!!currentDate&&currentDate!==data?.today;
+ const detail=details?optimistic.rows.find(o=>o.id===details):null;
+ return <main className="min-h-screen bg-[#f5f6f1] text-[#202920]">
+ {!embedded&&<header className="flex items-center gap-3 border-b bg-white px-4 py-3"><Link href="/" className={button}><ArrowLeft size={16}/> Dashboard</Link><span className="text-sm font-bold">Krlio</span></header>}
+ <div className="mx-auto max-w-[1500px] px-3 py-4 sm:px-6">
+ <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#718073]">Operations</p><h1 className="text-2xl font-extrabold tracking-tight">Orders &amp; kitchen</h1></div><div className="flex items-center gap-2"><span className="flex items-center gap-1.5 text-xs font-semibold text-[#657168]"><span className={"h-2 w-2 rounded-full "+(live==="connected"?"bg-green-600":"bg-amber-500")}/>{live==="connected"?"Live":live==="connecting"?"Connecting":"Offline"}</span><button aria-label="Refresh orders" className={button} disabled={loading||!branch} onClick={()=>void load(true)}><RefreshCw size={15}/><span className="hidden sm:inline">Refresh</span></button></div></div>
+ <div className="mt-3 flex flex-wrap items-center gap-2">{memberships.length>1&&<select aria-label="Restaurant" value={tenant} disabled={optimistic.pending.size>0} className={button+" max-w-full"} onChange={e=>{resetScope();setBranch("");setTenant(e.target.value);}}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}<label className="flex items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold"><Store size={15}/><select aria-label="Branch" value={branch} disabled={optimistic.pending.size>0} onChange={e=>{resetScope();setBranch(e.target.value);}} className="max-w-[220px] bg-transparent outline-none">{!branches.length&&<option value="">Select branch</option>}{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>{updated&&<span className="text-[10px] text-[#657168]">Updated {time(updated.toISOString())}</span>}</div>
+ <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl border border-[#e1e5da] bg-white p-1.5"><button aria-pressed={mode==="day"} onClick={()=>changeMode("day")} className={"rounded-lg px-3 py-2.5 text-sm font-bold "+(mode==="day"?"bg-[#213d32] text-white":"text-[#455348]")}><CalendarDays size={15} className="mr-1.5 inline"/> Orders by date</button><button aria-pressed={mode==="live"} onClick={()=>changeMode("live")} className={"rounded-lg px-3 py-2.5 text-sm font-bold "+(mode==="live"?"bg-[#213d32] text-white":"text-[#455348]")}><ChefHat size={15} className="mr-1.5 inline"/> Live queue {data?data.activeQueue:""}</button></div>
+ {mode==="day"?<div className="mt-3 flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-1.5"><button aria-label="Previous day" disabled={!currentDate} className={button} onClick={()=>chooseDate(offsetDay(currentDate,-1))}><ChevronLeft size={17}/></button><input type="date" aria-label="Order date" value={currentDate} min="2000-01-01" max={data?.today} onChange={e=>chooseDate(e.target.value)} className="min-h-10 min-w-0 rounded-xl border bg-white px-2 py-2 text-sm font-semibold"/><button aria-label="Next day" disabled={!currentDate||!data||currentDate>=data.today} className={button} onClick={()=>chooseDate(offsetDay(currentDate,1))}><ChevronRight size={17}/></button></div><div className="flex gap-1.5"><button className={button} disabled={!data} onClick={()=>{setDate("");setPage(1);setStatus("ALL");}}>Today</button><button className={button} disabled={!data} onClick={()=>data&&chooseDate(offsetDay(data.today,-1))}>Yesterday</button></div></div>:<p className="mt-3 rounded-xl bg-[#e7eee4] px-3 py-2 text-xs text-[#455348]">Unfinished orders from every date, including previous days. Completed orders stay in date history.</p>}
+ <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-3">{[{name:mode==="live"?"In queue":"Orders",count:counts.ALL??0,filter:"ALL"},{name:"New",count:counts.NEW??0,filter:"NEW"},{name:"Preparing",count:counts.PREPARING??0,filter:"PREPARING"},{name:"Ready",count:counts.READY??0,filter:"READY"}].map(m=><button key={m.name} onClick={()=>chooseStatus(m.filter)} className={"rounded-xl border bg-white px-2 py-2.5 text-left sm:p-3 "+(status===m.filter?"border-[#a2b4a0]":"border-[#e1e5da]")}><p className="text-[10px] font-medium text-[#657168] sm:text-xs">{m.name}</p><p className="mt-1 text-xl font-extrabold tabular-nums">{m.count}</p></button>)}</div>
+ {mode==="day"&&!!data?.olderActive&&<button className="mt-3 flex w-full items-center justify-between gap-2 rounded-xl border border-[#e3c99b] bg-[#fff6df] px-3 py-2.5 text-left text-xs font-semibold text-[#805c23]" onClick={()=>changeMode("live")}><span>{data.olderActive} unfinished {data.olderActive===1?"order":"orders"} from previous days. View live queue.</span><ChevronRight size={16}/></button>}
+ <section className="mt-4 min-w-0">
+ <div className="sticky top-0 z-20 rounded-xl border border-[#e1e5da] bg-[#fffefa] p-2.5 shadow-sm"><div className="flex min-w-0 items-center gap-2 rounded-xl border bg-white px-3"><Search size={17} className="shrink-0 text-[#718073]"/><input value={search} maxLength={120} onChange={e=>setSearch(e.target.value)} placeholder="Search order, table or dish" aria-label="Search order, table or dish" className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none"/>{search&&<button aria-label="Clear search" onClick={()=>setSearch("")}><X size={16}/></button>}</div><div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">{states.filter(s=>mode!=="live"||s==="ALL"||!!nextStatus[s]).map(s=><button key={s} aria-pressed={status===s} onClick={()=>chooseStatus(s)} className={"shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold "+(status===s?"bg-[#213d32] text-white":"bg-[#edf0e9] text-[#455348]")}>{label[s]} <span className="opacity-75">{counts[s]??0}</span></button>)}</div></div>
+ <div className="my-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs font-semibold text-[#657168]">{mode==="live"?"Live kitchen queue":currentDate?(history?prettyDay(currentDate):"Today · "+prettyDay(currentDate)):"Orders"} · {loading?"Loading…":(data?.total??0)+" results"}</p><span className="text-[10px] text-[#657168]">{branchName} · {mode==="live"?"Open orders":"Newest first"}</span></div>
+ {error&&<div role="alert" className="mb-3 flex items-center justify-between gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-800"><span>{error}</span><button className={button} onClick={()=>branch?void load(true):setRetryBranches(n=>n+1)}>Retry</button></div>}
+ {loading&&snapScope.current!==scope?<div role="status" className="rounded-xl border bg-white p-8 text-center text-sm text-[#657168]">Loading selected orders…</div>:!available?<div className="rounded-xl border bg-white p-8 text-center text-sm text-[#657168]">Select a branch to view orders.</div>:!activeRows.length?<div className="rounded-xl border bg-white p-8 text-center"><ChefHat size={27} className="mx-auto text-[#718073]"/><h2 className="mt-3 text-sm font-bold">No orders in this view</h2><p className="mt-1 text-xs text-[#657168]">{search||status!=="ALL"?"Try clearing the search or status filter.":mode==="live"?"No unfinished orders.":history?"No orders for this date.":"New orders appear here automatically."}</p></div>:<div className="overflow-hidden rounded-xl border border-[#e1e5da] bg-white">
+ <div className="hidden grid-cols-[minmax(140px,1.1fr)_minmax(150px,1.5fr)_92px_90px_136px] gap-3 bg-[#edf0e9] px-4 py-3 text-[11px] font-semibold text-[#657168] lg:grid"><span>Order / table</span><span>Items</span><span>Total</span><span>Status</span><span>Action</span></div>
+ {activeRows.map(order=><article key={order.id} className="grid grid-cols-[1fr_auto] items-center gap-2 border-b border-[#e9ece5] px-3 py-3 last:border-0 lg:grid-cols-[minmax(140px,1.1fr)_minmax(150px,1.5fr)_92px_90px_136px] lg:gap-3 lg:px-4">
+ <button className="min-w-0 text-left" onClick={()=>setDetails(order.id)}><p className="truncate text-sm font-bold">{order.tableName}</p><p className="mt-0.5 truncate text-[10px] text-[#657168]">{order.orderNumber}</p><p className="mt-0.5 flex flex-wrap items-center gap-1 text-[10px] text-[#657168]"><Clock3 size={11}/>{time(order.createdAt)}{mode==="live"&&localDay(order.createdAt,tz)!==data?.today?" · "+prettyDay(localDay(order.createdAt,tz)):""}</p></button>
+ <div className="flex items-center justify-end gap-2 lg:col-start-4 lg:row-start-auto lg:justify-start"><span className={"whitespace-nowrap rounded-lg px-2 py-1 text-[10px] font-bold "+(tone[order.status]??tone.NEW)}>{label[order.status]??order.status}</span></div>
+ <button onClick={()=>setDetails(order.id)} className="min-w-0 text-left lg:col-start-2 lg:row-start-1"><p className="line-clamp-2 text-xs font-medium text-[#455348]">{order.itemsSummary||"Order items"}</p><p className="mt-1 text-[10px] text-[#657168]">{order.itemCount} units · View details</p></button>
+ <div className="text-right lg:col-start-3 lg:row-start-1 lg:text-left"><p className="text-sm font-bold tabular-nums">{money(Number(order.totalAmount))}</p></div>
+ <div className="col-span-2 flex items-center justify-end lg:col-span-1 lg:col-start-5 lg:row-start-1">{optimistic.pending.has(order.id)?<span className="text-xs text-[#657168]">Updating…</span>:nextStatus[order.status]?<button className={primary} disabled={optimistic.pending.size>=4} onClick={()=>mutate(order)}>{action[order.status]}</button>:<span className="text-xs text-[#657168]">{order.status==="SERVED"?"Completed":"Closed"}</span>}</div>
+ </article>)}</div>}
+ {available&&!!data?.total&&<div className="mt-3 flex items-center justify-between rounded-xl border bg-white p-3 text-xs"><span>{(currentPage-1)*20+1}–{Math.min(currentPage*20,data.total)} of {data.total}</span><div className="flex items-center gap-2"><button aria-label="Previous page" className={button} disabled={loading||currentPage<=1} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={16}/></button><span>{currentPage} / {countPages}</span><button aria-label="Next page" className={button} disabled={loading||currentPage>=countPages} onClick={()=>setPage(currentPage+1)}><ChevronRight size={16}/></button></div></div>}
+ </section></div>
+ {detail&&<div className="fixed inset-0 z-[70] flex items-end justify-end bg-black/40 sm:items-stretch" onClick={()=>setDetails(null)}><section role="dialog" aria-modal="true" aria-label="Order details" className="flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-white shadow-xl sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none" onClick={e=>e.stopPropagation()}><header className="flex items-start justify-between border-b p-4"><div><p className="text-xs text-[#657168]">{detail.orderNumber}</p><h2 className="text-xl font-bold">{detail.tableName}</h2><p className="text-xs text-[#657168]">{prettyDay(localDay(detail.createdAt,tz))} · {time(detail.createdAt)}</p></div><button className={button} aria-label="Close order details" onClick={()=>setDetails(null)}><X size={18}/></button></header><div className="min-h-0 flex-1 overflow-y-auto p-4"><span className={"rounded-lg px-2 py-1 text-xs font-bold "+(tone[detail.status]??tone.NEW)}>{label[detail.status]}</span><h3 className="mt-5 text-sm font-bold">Order items · {detail.itemCount} units</h3><p className="mt-2 whitespace-pre-wrap rounded-xl bg-[#f5f6f1] p-3 text-sm leading-6">{detail.itemsSummary}</p><p className="mt-4 flex justify-between border-t pt-4 font-bold"><span>Total</span>{money(Number(detail.totalAmount))}</p></div><footer className="border-t p-4">{nextStatus[detail.status]&&<button disabled={optimistic.pending.has(detail.id)||optimistic.pending.size>=4} className={primary+" w-full"} onClick={()=>mutate(detail)}>{optimistic.pending.has(detail.id)?"Updating…":action[detail.status]}</button>}</footer></section></div>}
+ </main>;
 }
-function Metric({label,value}:{label:string;value:number}){return <div className="panel p-5"><div className="text-xs text-[#85867d]">{label}</div><div className="mt-3 text-3xl font-bold tabular-nums">{value}</div></div>;}
