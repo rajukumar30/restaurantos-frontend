@@ -83,3 +83,9 @@ export async function compressBrandImage(file:File,max:number):Promise<File>{
   throw Error("Photo is too large. Try a smaller image.");
  }finally{bitmap.close();}
 }
+
+/** Use an upload-time thumbnail only for our own stored menu photos. External links are unchanged. */
+export function menuThumbnail(url:string){
+ if(/^\/api\/v1\/public\/menu\/images\/[0-9a-f-]{36}$/i.test(url))return safeImage(url)+"/thumbnail";
+ return safeImage(url);
+}

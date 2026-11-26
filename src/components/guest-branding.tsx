@@ -16,7 +16,7 @@ export function GuestBrandHero({branding:b,tableName,onExplore,compact=false}:{b
 }
 export function GuestBrandHeader({branding:b}:{branding:Branding}){
  const logo=b.logoUrl.startsWith("blob:")?b.logoUrl:safeImage(b.logoUrl);
- return <div className="flex min-w-0 items-center gap-3">{logo?<img src={logo} alt={b.displayName+" logo"} className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain"/>:<div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--guest-primary)] text-[var(--guest-primary-text)]"><Utensils size={21}/></div>}<div className="min-w-0"><p className="truncate text-[17px] font-bold tracking-tight text-[var(--guest-primary-link)]">{b.displayName}</p>{b.slogan&&<p className="line-clamp-1 text-xs text-[var(--guest-muted)]">{b.slogan}</p>}</div></div>;
+ return <div className="flex min-w-0 items-center gap-3">{logo?<img src={logo} alt={b.displayName+" logo"} fetchPriority="high" decoding="async" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain"/>:<div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--guest-primary)] text-[var(--guest-primary-text)]"><Utensils size={21}/></div>}<div className="min-w-0"><p className="truncate text-[17px] font-bold tracking-tight text-[var(--guest-primary-link)]">{b.displayName}</p>{b.slogan&&<p className="line-clamp-1 text-xs text-[var(--guest-muted)]">{b.slogan}</p>}</div></div>;
 }
 /** Identical restaurant header for every guest screen, with no page-specific navigation controls. */
 export function GuestPageHeader({branding,tableName}:{branding:Branding;tableName?:string}){

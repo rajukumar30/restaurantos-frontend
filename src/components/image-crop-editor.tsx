@@ -3,9 +3,9 @@ import {useEffect,useRef,useState} from "react";
 import {X,RotateCcw,RotateCw,Crop} from "lucide-react";
 
 export const imageSpecs={
- item:{width:1000,height:800,ratio:"5:4",target:180*1024,label:"Dish image"},
- banner:{width:1600,height:900,ratio:"16:9",target:250*1024,label:"Website banner"},
- logo:{width:512,height:512,ratio:"1:1",target:120*1024,label:"Restaurant logo"}
+ item:{width:800,height:640,ratio:"5:4",target:100*1024,label:"Dish image"},
+ banner:{width:960,height:540,ratio:"16:9",target:120*1024,label:"Website banner"},
+ logo:{width:256,height:256,ratio:"1:1",target:40*1024,label:"Restaurant logo"}
 } as const;
 export type ImageKind=keyof typeof imageSpecs;
 export function imageSizeLabel(bytes:number){return Math.max(1,Math.round(bytes/1024))+" KB";}
@@ -36,7 +36,7 @@ async function encode(canvas:HTMLCanvasElement,kind:ImageKind):Promise<File>{
   }
   // Downsample directly from the original crop, retaining the square and the alpha channel.
   // Unlike repeated colour quantization, this avoids posterization of gradients and edges.
-  for(const size of [384,320,256,192,128]){
+  for(const size of [192,160,128,96]){
    const scaled=document.createElement("canvas");scaled.width=size;scaled.height=size;
    const context=scaled.getContext("2d");if(!context)throw Error("Unable to prepare logo.");
    context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
@@ -46,7 +46,7 @@ async function encode(canvas:HTMLCanvasElement,kind:ImageKind):Promise<File>{
   }
   throw Error("Unable to optimize this logo. Please select a valid image and try again.");
  }
- for(const quality of [.86,.77,.68,.58,.48,.38,.28,.18]){
+ for(const quality of [.9,.83,.76,.68,.6,.52,.44,.36,.28,.20,.12,.06]){
   const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
   if(blob&&blob.size<=spec.target)return new File([blob],kind+".jpg",{type:"image/jpeg"});
  }
@@ -65,7 +65,7 @@ export default function ImageCropEditor({file,kind,onCancel,onSave}:{file:File;k
  async function save(){if(!bitmap||busy)return;setBusy(true);setError("");try{const canvas=document.createElement("canvas");draw(canvas,bitmap,kind,zoom,angle,x,y);await onSave(await encode(canvas,kind));}catch(e){setError(e instanceof Error?e.message:"Unable to compress image.");}finally{setBusy(false);}}
  const clamp=(v:number)=>Math.max(-1,Math.min(1,v));
  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3"><section role="dialog" aria-modal="true" aria-label="Crop and optimize photo" className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 text-[#20241f] shadow-xl sm:p-6">
- <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Adjust {spec.label.toLowerCase()}</h2><p className="mt-1 text-xs text-[#59665d]">{kind==="logo"?"Up to 512 × 512 px":spec.width+" × "+spec.height+" px"} · {spec.ratio} · up to {imageSizeLabel(spec.target)}</p></div><button type="button" aria-label="Close image editor" disabled={busy} onClick={onCancel}><X size={22}/></button></div>
+ <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Adjust {spec.label.toLowerCase()}</h2><p className="mt-1 text-xs text-[#59665d]">{kind==="logo"?"Up to 256 × 256 px":spec.width+" × "+spec.height+" px"} · {spec.ratio} · up to {imageSizeLabel(spec.target)}</p></div><button type="button" aria-label="Close image editor" disabled={busy} onClick={onCancel}><X size={22}/></button></div>
  <p className="mb-3 text-xs text-[#59665d]">{kind==="logo"?"Your logo fits inside a square. We keep transparency and automatically use the best resolution within the size limit.":"Drag the photo to position it inside the frame."} Original: {imageSizeLabel(file.size)}. Only the optimized image will be uploaded.</p>
  <div className="relative mx-auto overflow-hidden rounded-xl border bg-[#eaeae7]" style={{aspectRatio:spec.width/spec.height,maxWidth:kind==="logo"?240:undefined}}>
  <canvas ref={canvasRef} className="h-full w-full touch-none" aria-label="Cropped photo preview" onPointerDown={e=>{if(!bitmap||busy)return;e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,y:e.clientY,px:x,py:y};}} onPointerMove={e=>{const p=drag.current;if(!p)return;const rect=e.currentTarget.getBoundingClientRect();setX(clamp(p.px+(e.clientX-p.x)/Math.max(1,rect.width)*2));setY(clamp(p.py+(e.clientY-p.y)/Math.max(1,rect.height)*2));}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}/>
