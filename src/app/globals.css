@@ -45,3 +45,5 @@
 .guest-theme .guest-nav-active{color:var(--guest-link);font-weight:750}
 .guest-theme .guest-nav-active .guest-nav-icon{background:var(--guest-tint);color:var(--guest-primary-link)}
 @media(max-width:360px){.guest-theme .guest-dish-card .guest-add{padding:6px}.guest-theme .guest-dish-card .guest-quantity{gap:3px}}
+
+.guest-theme .guest-bottom-nav{padding-bottom:calc(.5rem + env(safe-area-inset-bottom,0px))}
