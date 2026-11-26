@@ -2,7 +2,7 @@
 import {Utensils} from "lucide-react";
 import {type Branding,safeImage} from "@/lib/guest-branding";
 export function GuestBrandHero({branding:b,tableName,onExplore,compact=false}:{branding:Branding;tableName?:string;onExplore?:()=>void;compact?:boolean}){
- const photo=safeImage(b.bannerUrl);
+ const photo=b.bannerUrl.startsWith("blob:")?b.bannerUrl:safeImage(b.bannerUrl);
  if(!b.showBanner)return <div className="mb-5"><h1 className="text-2xl font-extrabold">{b.displayName}</h1>{b.slogan&&<p className="mt-2 text-sm opacity-80">{b.slogan}</p>}{onExplore&&<button type="button" onClick={onExplore} className="mt-3 rounded-xl px-4 py-3 font-bold" style={{background:"var(--guest-accent)",color:"var(--guest-accent-text)"}}>Explore menu</button>}</div>;
  return <section className="mb-5 overflow-hidden shadow-sm" style={{borderRadius:"var(--guest-radius)",background:"var(--guest-primary)",color:"var(--guest-primary-text)"}}>
   <div className={compact?"px-5 py-5":"min-h-52 px-6 py-6"} style={photo?{backgroundImage:'linear-gradient(90deg,rgba(0,0,0,.78),rgba(0,0,0,.38)),url("'+photo.replaceAll('"','%22')+'")',backgroundSize:"cover",backgroundPosition:"center",color:"#FFFFFF"}:undefined}>
@@ -14,7 +14,7 @@ export function GuestBrandHero({branding:b,tableName,onExplore,compact=false}:{b
  </section>;
 }
 export function GuestBrandHeader({branding:b}:{branding:Branding}){
- const logo=safeImage(b.logoUrl);
+ const logo=b.logoUrl.startsWith("blob:")?b.logoUrl:safeImage(b.logoUrl);
  return <div className="flex items-center gap-3">{logo?<img src={logo} alt={b.displayName+" logo"} className="h-11 w-11 rounded-xl bg-white object-contain"/>:<Utensils size={22}/>}<div><p className="font-extrabold">{b.displayName}</p>{b.slogan&&<p className="text-xs opacity-80">{b.slogan}</p>}</div></div>;
 }
 export function GuestBrandDetails({branding:b}:{branding:Branding}){

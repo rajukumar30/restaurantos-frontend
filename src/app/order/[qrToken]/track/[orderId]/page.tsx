@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import {type Branding,resolveBranding,brandStyle} from "@/lib/guest-branding";
+import {type Branding,resolveBranding,brandStyle,safeImage} from "@/lib/guest-branding";
 import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -52,7 +52,7 @@ export default function TrackOrderPage() {
   const activeIndex = stages.findIndex(stage => stage.key === order?.status);
   const cancelled = order?.status === "CANCELLED";
 
-  return <main className="min-h-screen pb-28" style={brandStyle(design)}><header style={{backgroundColor:accent,color:"var(--guest-primary-text)"}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{branding?.logoUrl?<img src={branding.logoUrl} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
+  return <main className="min-h-screen pb-28" style={brandStyle(design)}><header style={{backgroundColor:accent,color:"var(--guest-primary-text)"}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{safeImage(design.logoUrl)?<img src={safeImage(design.logoUrl)} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
     <div className="mx-auto max-w-lg">
       <section className="panel p-6 sm:p-8">
         <div className="eyebrow">Your order</div>
