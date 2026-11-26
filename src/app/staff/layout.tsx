@@ -2,7 +2,7 @@
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
-import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History} from "lucide-react";
+import {LayoutDashboard,ChefHat,UtensilsCrossed,Wallet,Menu,X,LogOut,ShieldCheck,Users,ClipboardList,Clock3,History,Palette} from "lucide-react";
 import {StaffBootstrapContext,type StaffBootstrap} from "./bootstrap-context";
 import {staffRole,roleHome} from "./role-routes";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
@@ -104,6 +104,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  (href==="/staff/tables"&&waiter&&access.permissions.includes("orders:manage"))||
  (href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read")));
  const extra=[
+  ...(manager&&access.permissions.includes("menu:manage")&&features.has("QR_MENU")?[{href:"/staff/website",label:"Customize Website",icon:Palette}]:[]),
   ...(kitchen&&access.permissions.includes("kitchen:operate")?[
    {href:"/staff/operations/kitchen-history",label:"Kitchen history",icon:History}]:[]),
   ...(waiter&&access.permissions.includes("orders:manage")?[

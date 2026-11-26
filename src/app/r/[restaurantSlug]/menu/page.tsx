@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
+import {type Branding,resolveBranding,brandStyle} from "@/lib/guest-branding";
+import {GuestBrandHeader,GuestBrandHero,GuestBrandDetails} from "@/components/guest-branding";
 import { Utensils, MapPin } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Item = { id:string; name:string; description?:string; price:number; dietaryType:string; prepTimeMinutes:number };
 type Category = { id:string; name:string; description?:string; sortOrder:number; items:Item[] };
 type Branch = { id:string; name:string };
-type Menu = { restaurantName:string; slug:string; branches:Branch[]; branchId:string; branchName:string; categories:Category[] };
+type Menu = { restaurantName:string; slug:string; branches:Branch[]; branchId:string; branchName:string; categories:Category[]; branding?:Branding };
 
 export default function RestaurantPublicMenuPage() {
   const params = useParams<{restaurantSlug:string}>();
@@ -40,19 +42,15 @@ export default function RestaurantPublicMenuPage() {
     return () => { cancelled = true; };
   }, [params.restaurantSlug, searchParams]);
 
-  return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-5 sm:px-8">
-      <div className="mx-auto flex max-w-3xl items-center gap-3">
-        <div className="brand-mark">r.</div>
-        <div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Restaurant menu</div></div>
-      </div>
-    </header>
+  const branding=resolveBranding(menu);
+  return <main className="min-h-screen" style={brandStyle(branding)}>
+    <header className="px-5 py-5 sm:px-8" style={{background:"var(--guest-primary)",color:"var(--guest-primary-text)"}}><div className="mx-auto max-w-3xl"><GuestBrandHeader branding={branding}/></div></header>
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-8 sm:py-10">
       {loading ? <div className="panel py-20 text-center text-sm text-[#99998f]">Loading menu…</div> :
       error ? <div className="panel px-6 py-16 text-center"><Utensils className="mx-auto text-[#c65e3d]" size={26}/><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[#85867d]">{error}</p></div> :
       menu && <>
         <div className="mb-8">
-          <div className="eyebrow">RestaurantOS · Digital menu</div>
+          <GuestBrandHero branding={branding} compact/>
           <h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">{menu.restaurantName}<span className="text-[#E56A42]">.</span></h1>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <label className="inline-flex items-center gap-2 rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-3 py-2 text-xs text-[#55584f]"><MapPin size={14}/><span className="font-semibold">Branch</span>
@@ -74,6 +72,7 @@ export default function RestaurantPublicMenuPage() {
             </div>
           </article>)}</div>}
         </section>)}
+        <GuestBrandDetails branding={branding}/>
         {menu.categories.length===0&&<div className="panel py-12 text-center text-sm text-[#99998f]">This restaurant has not published a menu yet.</div>}
       </>}
       <p className="mt-8 text-center text-[10px] text-[#aaa99f]">Powered by RestaurantOS</p>

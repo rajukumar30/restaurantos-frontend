@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {type Branding,resolveBranding,brandStyle} from "@/lib/guest-branding";
 import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { CheckCircle2, Clock3, RefreshCw, Utensils, Home, BookOpen, ReceiptText, ArrowLeft } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type OrderStatus = { orderNumber: string; status: string; totalAmount: number; createdAt: string };
 const stages = [
   { key: "NEW", label: "Order received", description: "The restaurant has received your order." },
@@ -23,8 +24,8 @@ export default function TrackOrderPage() {
   const [error, setError] = useState("");
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [branding,setBranding]=useState<{restaurantName:string;logoUrl?:string;theme?:string;tableName?:string}|null>(null);
-  const accent=branding?.theme==="BOLD"?"#a54225":branding?.theme==="MINIMAL"?"#3d4540":"#243128";
+  const [branding,setBranding]=useState<{restaurantName:string;logoUrl?:string;theme?:string;tableName?:string;branding?:Branding}|null>(null);
+  const design=resolveBranding(branding);const accent=design.primaryColor;
   useEffect(()=>{fetch(`${API}/api/v1/public/qr/${encodeURIComponent(qrToken)}`).then(r=>r.json()).then(p=>{if(p.success)setBranding(p.data);}).catch(()=>{});},[qrToken]);
 
   const refresh = useCallback(async () => {
@@ -51,7 +52,7 @@ export default function TrackOrderPage() {
   const activeIndex = stages.findIndex(stage => stage.key === order?.status);
   const cancelled = order?.status === "CANCELLED";
 
-  return <main className="min-h-screen bg-[#fffaf4] pb-28 text-[#292820]"><header style={{backgroundColor:accent}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{branding?.logoUrl?<img src={branding.logoUrl} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
+  return <main className="min-h-screen pb-28" style={brandStyle(design)}><header style={{backgroundColor:accent,color:"var(--guest-primary-text)"}} className="px-5 py-5 text-white"><div className="mx-auto flex max-w-3xl items-center gap-3"><Link aria-label="Back to menu" href={`/order/${encodeURIComponent(qrToken)}`}><ArrowLeft size={21}/></Link>{branding?.logoUrl?<img src={branding.logoUrl} alt="Restaurant logo" className="h-10 w-10 rounded-full object-cover"/>:<Utensils size={20}/>}<div><div className="font-bold">{branding?.restaurantName||"Restaurant"}</div><div className="text-xs opacity-75">{branding?.tableName||"Your table"} · Order tracking</div></div></div></header><div className="mx-auto max-w-lg px-4 py-8">
     <div className="mx-auto max-w-lg">
       <section className="panel p-6 sm:p-8">
         <div className="eyebrow">Your order</div>
