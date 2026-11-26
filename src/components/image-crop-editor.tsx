@@ -5,7 +5,7 @@ import {X,RotateCcw,RotateCw,Crop} from "lucide-react";
 export const imageSpecs={
  item:{width:1000,height:800,ratio:"5:4",target:180*1024,label:"Dish image"},
  banner:{width:1600,height:900,ratio:"16:9",target:250*1024,label:"Website banner"},
- logo:{width:512,height:512,ratio:"1:1",target:100*1024,label:"Restaurant logo"}
+ logo:{width:512,height:512,ratio:"1:1",target:120*1024,label:"Restaurant logo"}
 } as const;
 export type ImageKind=keyof typeof imageSpecs;
 export function imageSizeLabel(bytes:number){return Math.max(1,Math.round(bytes/1024))+" KB";}
@@ -21,14 +21,30 @@ function draw(canvas:HTMLCanvasElement,bitmap:ImageBitmap,kind:ImageKind,zoom:nu
 async function encode(canvas:HTMLCanvasElement,kind:ImageKind):Promise<File>{
  const spec=imageSpecs[kind];
  if(kind==="logo"){
-  // Preserve alpha. Try a quantized raster if the full-colour PNG is too large.
-  for(const levels of [256,64,32,16,8]){
-   if(levels!==256){const ctx=canvas.getContext("2d")!;const image=ctx.getImageData(0,0,canvas.width,canvas.height);const step=255/(levels-1);
-    for(let i=0;i<image.data.length;i+=4)for(let c=0;c<3;c++)image.data[i+c]=Math.round(Math.round(image.data[i+c]/step)*step);ctx.putImageData(image,0,0);}
-   const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/png"));
+  const ctx=canvas.getContext("2d")!;
+  const {data}=ctx.getImageData(0,0,canvas.width,canvas.height);
+  let transparent=false;
+  for(let i=3;i<data.length;i+=4)if(data[i]<255){transparent=true;break;}
+  // Use lossless PNG first. JPEG is appropriate only for an entirely opaque logo.
+  const original=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/png"));
+  if(original&&original.size<=spec.target)return new File([original],"logo.png",{type:"image/png"});
+  if(!transparent){
+   for(const quality of [.92,.85,.75,.62,.48]){
+    const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
+    if(blob&&blob.size<=spec.target)return new File([blob],"logo.jpg",{type:"image/jpeg"});
+   }
+  }
+  // Downsample directly from the original crop, retaining the square and the alpha channel.
+  // Unlike repeated colour quantization, this avoids posterization of gradients and edges.
+  for(const size of [384,320,256,192,128]){
+   const scaled=document.createElement("canvas");scaled.width=size;scaled.height=size;
+   const context=scaled.getContext("2d");if(!context)throw Error("Unable to prepare logo.");
+   context.imageSmoothingEnabled=true;context.imageSmoothingQuality="high";
+   context.drawImage(canvas,0,0,size,size);
+   const blob=await new Promise<Blob|null>(resolve=>scaled.toBlob(resolve,"image/png"));
    if(blob&&blob.size<=spec.target)return new File([blob],"logo.png",{type:"image/png"});
   }
-  throw Error("This logo is too detailed to compress without losing quality. Try a simpler logo.");
+  throw Error("Unable to optimize this logo. Please select a valid image and try again.");
  }
  for(const quality of [.86,.77,.68,.58,.48,.38,.28,.18]){
   const blob=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,"image/jpeg",quality));
@@ -49,8 +65,8 @@ export default function ImageCropEditor({file,kind,onCancel,onSave}:{file:File;k
  async function save(){if(!bitmap||busy)return;setBusy(true);setError("");try{const canvas=document.createElement("canvas");draw(canvas,bitmap,kind,zoom,angle,x,y);await onSave(await encode(canvas,kind));}catch(e){setError(e instanceof Error?e.message:"Unable to compress image.");}finally{setBusy(false);}}
  const clamp=(v:number)=>Math.max(-1,Math.min(1,v));
  return <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-3"><section role="dialog" aria-modal="true" aria-label="Crop and optimize photo" className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 text-[#20241f] shadow-xl sm:p-6">
- <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Adjust {spec.label.toLowerCase()}</h2><p className="mt-1 text-xs text-[#59665d]">{spec.width} × {spec.height} px · {spec.ratio} · up to {imageSizeLabel(spec.target)}</p></div><button type="button" aria-label="Close image editor" disabled={busy} onClick={onCancel}><X size={22}/></button></div>
- <p className="mb-3 text-xs text-[#59665d]">{kind==="logo"?"Your logo fits inside a square with transparency preserved.":"Drag the photo to position it inside the frame."} Original: {imageSizeLabel(file.size)}. Only the optimized image will be uploaded.</p>
+ <div className="mb-3 flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Adjust {spec.label.toLowerCase()}</h2><p className="mt-1 text-xs text-[#59665d]">{kind==="logo"?"Up to 512 × 512 px":spec.width+" × "+spec.height+" px"} · {spec.ratio} · up to {imageSizeLabel(spec.target)}</p></div><button type="button" aria-label="Close image editor" disabled={busy} onClick={onCancel}><X size={22}/></button></div>
+ <p className="mb-3 text-xs text-[#59665d]">{kind==="logo"?"Your logo fits inside a square. We keep transparency and automatically use the best resolution within the size limit.":"Drag the photo to position it inside the frame."} Original: {imageSizeLabel(file.size)}. Only the optimized image will be uploaded.</p>
  <div className="relative mx-auto overflow-hidden rounded-xl border bg-[#eaeae7]" style={{aspectRatio:spec.width/spec.height,maxWidth:kind==="logo"?240:undefined}}>
  <canvas ref={canvasRef} className="h-full w-full touch-none" aria-label="Cropped photo preview" onPointerDown={e=>{if(!bitmap||busy)return;e.currentTarget.setPointerCapture(e.pointerId);drag.current={x:e.clientX,y:e.clientY,px:x,py:y};}} onPointerMove={e=>{const p=drag.current;if(!p)return;const rect=e.currentTarget.getBoundingClientRect();setX(clamp(p.px+(e.clientX-p.x)/Math.max(1,rect.width)*2));setY(clamp(p.py+(e.clientY-p.y)/Math.max(1,rect.height)*2));}} onPointerUp={()=>{drag.current=null;}} onPointerCancel={()=>{drag.current=null;}}/>
  {!bitmap&&!error&&<div className="absolute inset-0 grid place-items-center text-xs">Preparing image…</div>}</div>
