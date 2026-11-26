@@ -65,7 +65,7 @@ export function brandStyle(b:Branding):CSSProperties{
  const p=palette(b);
  return {"--guest-primary":p.primary,"--guest-primary-text":p.primaryText,"--guest-accent":p.accent,"--guest-accent-text":p.accentText,"--guest-bg":p.background,"--guest-text":p.text,"--guest-surface":p.surface,"--guest-soft":p.soft,"--guest-tint":p.tint,"--guest-muted":p.muted,"--guest-link":p.link,"--guest-primary-link":p.primaryLink,"--guest-accent-soft":p.accentSoft,"--guest-border":p.border,"--guest-strong-border":p.strongBorder,"--guest-danger":p.danger,"--guest-success":p.success,"--guest-error-surface":p.errorSurface,"--guest-success-surface":p.successSurface,"--guest-overlay":p.overlay,"--guest-radius":p.radius,"--guest-heading-font":p.headingFont,"--guest-shadow":p.shadow,backgroundColor:p.background,color:p.text,colorScheme:p.text==="#FFFFFF"?"dark":"light"} as CSSProperties;
 }
-export function safeImage(url:string){if(/^\/api\/v1\/public\/guest-website\/images\/[0-9a-f-]{36}$/i.test(url))return (process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net").replace(/\/$/,"")+url;try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password?u.href:"";}catch{return "";}}
+export function safeImage(url:string){if(/^\/api\/v1\/public\/(?:guest-website|menu)\/images\/[0-9a-f-]{36}$/i.test(url))return (process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net").replace(/\/$/,"")+url;try{const u=new URL(url);return u.protocol==="https:"&&!u.username&&!u.password?u.href:"";}catch{return "";}}
 
 /** Compress locally; do not send raw large phone photographs or SVG files. */
 export async function compressBrandImage(file:File,max:number):Promise<File>{

@@ -1,10 +1,11 @@
 "use client";
 import {useEffect,useState} from "react";
 import {Palette,ImagePlus,Store,Eye,RotateCcw,Check,Save} from "lucide-react";
-import {type Branding,defaultBranding,presets,brandStyle,safeImage,compressBrandImage,resolveBranding} from "@/lib/guest-branding";
+import {type Branding,defaultBranding,presets,brandStyle,safeImage,resolveBranding} from "@/lib/guest-branding";
 import {GuestPageHeader,GuestBrandHero,GuestBrandDetails} from "@/components/guest-branding";
 import {GuestMenuDishCard,GuestFeaturedDishCard} from "@/components/guest-dish-card";
 import GuestBottomNav from "@/components/guest-bottom-nav";
+import ImageCropEditor,{imageSizeLabel} from "@/components/image-crop-editor";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Membership={tenantId:string;tenantName:string;roles?:string[]};
 type ImageKey="logoUrl"|"bannerUrl";
@@ -14,7 +15,8 @@ const inputClass="mt-2 w-full rounded-xl border border-[#e0e4dc] bg-white px-3 p
 export default function CustomizeWebsite(){
  const [memberships,setMemberships]=useState<Membership[]>([]),[tenant,setTenant]=useState(""),[token,setToken]=useState("");
  const [photos,setPhotos]=useState<Partial<Record<ImageKey,File>>>({});
- const [photoBusy,setPhotoBusy]=useState(false);
+ const [cropRequest,setCropRequest]=useState<{key:ImageKey;file:File}|null>(null);
+ const photoBusy=!!cropRequest;
  const [previews,setPreviews]=useState<Partial<Record<ImageKey,string>>>({});
  useEffect(()=>{const next:Partial<Record<ImageKey,string>>={};for(const key of ["logoUrl","bannerUrl"] as const)if(photos[key])next[key]=URL.createObjectURL(photos[key]!);setPreviews(next);return()=>Object.values(next).forEach(url=>URL.revokeObjectURL(url));},[photos]);
  const [draft,setDraft]=useState<Branding|null>(null),[published,setPublished]=useState<Branding|null>(null);
@@ -30,7 +32,8 @@ export default function CustomizeWebsite(){
  const dirty=JSON.stringify(draft)!==JSON.stringify(published)||Object.keys(photos).length>0;
  const changeTenant=(value:string)=>{if(dirty&&!window.confirm("Discard unpublished changes?"))return;setTenant(value);};
  function chooseTheme(theme:Branding["theme"]){const {primaryColor,accentColor,backgroundColor}=presets[theme];setDraft(d=>d?{...d,theme,primaryColor,accentColor,backgroundColor}:d);}
- async function selectPhoto(key:ImageKey,file:File){setPhotoBusy(true);setError("");try{const photo=await compressBrandImage(file,key==="logoUrl"?512:1280);setPhotos(old=>({...old,[key]:photo}));field(key,"");}catch(e){setError(e instanceof Error?e.message:"Unable to open photo");}finally{setPhotoBusy(false);}}
+ function selectPhoto(key:ImageKey,file:File){setError("");setCropRequest({key,file});}
+ function applyPhoto(file:File){if(!cropRequest)return;const key=cropRequest.key;setPhotos(old=>({...old,[key]:file}));field(key,"");setCropRequest(null);}
  function clearPhoto(key:ImageKey){setPhotos(old=>{const next={...old};delete next[key];return next;});field(key,"");}
  async function publish(){if(!draft||!dirty||saving||photoBusy)return;setError("");setNotice("");
   if(!draft.displayName.trim()){setError("Enter a restaurant name.");return;}
@@ -40,9 +43,9 @@ export default function CustomizeWebsite(){
  }
  function reset(){if(!draft)return;const d=defaultBranding(draft.displayName);setDraft({...draft,theme:d.theme,primaryColor:d.primaryColor,accentColor:d.accentColor,backgroundColor:d.backgroundColor,showBanner:true,showFeatured:true,showDetails:true});setNotice("Default design restored in preview. Publish to apply it.");}
  const preview=draft?{...draft,...previews}:null;
- const photoField=(key:ImageKey,label:string)=>draft&&<div className="space-y-2"><p className="text-sm font-semibold">{label}</p><div className="flex items-center gap-3 rounded-xl border border-dashed p-3">{(previews[key]||safeImage(draft[key]))&&<img src={previews[key]||safeImage(draft[key])} alt={label+" preview"} className="h-16 w-20 rounded-lg object-contain"/>}<label className="flex cursor-pointer items-center gap-2 rounded-lg bg-[#f7f7f4] px-3 py-3 text-xs font-bold"><ImagePlus size={17}/>{photoBusy?"Preparing photo…":"Choose photo"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={photoBusy||saving} onChange={e=>{const file=e.target.files?.[0];if(file)void selectPhoto(key,file);e.target.value="";}}/></label>{(draft[key]||photos[key])&&<button type="button" onClick={()=>clearPhoto(key)} className="text-xs font-bold text-red-700">Remove</button>}</div><details><summary className="cursor-pointer text-xs font-medium text-[#788078]">Use an image link instead</summary><input aria-label={label+" URL"} className={inputClass} value={draft[key]} placeholder="https://…" maxLength={2048} onChange={e=>{setPhotos(old=>{const next={...old};delete next[key];return next;});field(key,e.target.value);}}/></details></div>;
+ const photoField=(key:ImageKey,label:string)=>draft&&<div className="space-y-2"><p className="text-sm font-semibold">{label}</p><div className="flex items-center gap-3 rounded-xl border border-dashed p-3">{(previews[key]||safeImage(draft[key]))&&<img src={previews[key]||safeImage(draft[key])} alt={label+" preview"} className="h-16 w-20 rounded-lg object-contain"/>}<label className="flex cursor-pointer items-center gap-2 rounded-lg bg-[#f7f7f4] px-3 py-3 text-xs font-bold"><ImagePlus size={17}/>{photoBusy?"Preparing photo…":"Choose photo"}<input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" disabled={photoBusy||saving} onChange={e=>{const file=e.target.files?.[0];if(file)selectPhoto(key,file);e.target.value="";}}/></label>{(draft[key]||photos[key])&&<button type="button" onClick={()=>clearPhoto(key)} className="text-xs font-bold text-red-700">Remove</button>}</div><p className="text-xs text-[#788078]">{key==="logoUrl"?"512 × 512 · transparent PNG · max 120 KB":"1600 × 900 · max 250 KB"}{photos[key]?" · optimized "+imageSizeLabel(photos[key]!.size):""}</p></div>;
  const textField=(key:"displayName"|"slogan"|"logoUrl"|"bannerUrl"|"bannerTitle"|"bannerText"|"about"|"contactPhone"|"address"|"openingHours",label:string,max:number,placeholder="",multi=false)=>draft&&<label className="block text-sm font-semibold">{label}{multi?<textarea className={inputClass} rows={3} value={draft[key]} maxLength={max} placeholder={placeholder} onChange={e=>field(key,e.target.value)}/>:<input className={inputClass} value={draft[key]} maxLength={max} placeholder={placeholder} onChange={e=>field(key,e.target.value)}/>}</label>;
- return <main className="mx-auto max-w-7xl px-4 py-7 sm:px-8"><div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#b7502e]">Restaurant website</p><h1 className="mt-2 text-3xl font-extrabold">Customize Website</h1><p className="mt-2 text-sm text-[#788078]">Choose your design, preview it and publish when ready.</p></div>{memberships.length>1&&<select aria-label="Restaurant" className="rounded-xl border bg-white p-3" value={tenant} disabled={saving||photoBusy} onChange={e=>changeTenant(e.target.value)}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}</div>
+ return <main className="mx-auto max-w-7xl px-4 py-7 sm:px-8">{cropRequest&&<ImageCropEditor file={cropRequest.file} kind={cropRequest.key==="logoUrl"?"logo":"banner"} onCancel={()=>setCropRequest(null)} onSave={applyPhoto}/>}<div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[#b7502e]">Restaurant website</p><h1 className="mt-2 text-3xl font-extrabold">Customize Website</h1><p className="mt-2 text-sm text-[#788078]">Choose your design, preview it and publish when ready.</p></div>{memberships.length>1&&<select aria-label="Restaurant" className="rounded-xl border bg-white p-3" value={tenant} disabled={saving||photoBusy} onChange={e=>changeTenant(e.target.value)}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}</div>
  {error&&<p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-sm text-red-800">{error}</p>}
  {notice&&<p role="status" className="mb-4 rounded-xl bg-green-50 p-4 text-sm text-green-800">{notice}</p>}
  {loading?<div className="rounded-2xl border bg-white p-8">Loading website settings…</div>:draft&&<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
