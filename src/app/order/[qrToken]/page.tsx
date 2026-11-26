@@ -7,7 +7,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import GuestService from "@/components/guest-service";
 import {type Branding,resolveBranding,brandStyle} from "@/lib/guest-branding";
-import {GuestBrandHeader,GuestBrandHero,GuestBrandDetails} from "@/components/guest-branding";
+import {GuestPageHeader,GuestBrandHero,GuestBrandDetails} from "@/components/guest-branding";
 import {GuestMenuDishCard,GuestFeaturedDishCard} from "@/components/guest-dish-card";
 import GuestBottomNav,{type GuestView,guestViewFromUrl,guestViewHref} from "@/components/guest-bottom-nav";
 
@@ -185,7 +185,7 @@ export default function GuestOrderPage(){
   const branding=resolveBranding(menu);
   const jump=(id:string)=>{setActiveCategory(id);setGuestPage("menu");setCategoryOpen(false);document.getElementById("guest-menu")?.scrollIntoView({behavior:"smooth"});};
   return <main className="guest-theme min-h-screen pb-36" style={brandStyle(branding)}>
-    <header className="guest-header"><div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6"><GuestBrandHeader branding={branding}/>{menu?.tableName&&<span className="shrink-0 rounded-full bg-[var(--guest-tint)] px-3 py-1.5 text-[11px] font-semibold text-[var(--guest-primary-link)]">{menu.tableName}</span>}</div></header>
+    <GuestPageHeader branding={branding} tableName={menu?.tableName}/>
     <div className="mx-auto max-w-3xl px-4 py-5 sm:px-8 sm:py-8">
       {loading?<div className="panel py-20 text-center text-sm text-[var(--guest-muted)]">Loading restaurant menu…</div>:error?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-[var(--guest-radius)] bg-[var(--guest-error-surface)] text-[var(--guest-danger)]"><Utensils size={22}/></div><h1 className="mt-4 text-xl font-bold">Menu unavailable</h1><p className="mt-2 text-sm text-[var(--guest-muted)]">{error}</p><p className="mt-5 text-xs text-[var(--guest-muted)]">Please ask a staff member for help or scan the table QR code again.</p></div>:menu&&guestPage==="menu"&&<>
         <GuestBrandHero branding={branding} tableName={menu.tableName} compact/>

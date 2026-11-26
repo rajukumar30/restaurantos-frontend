@@ -1,13 +1,13 @@
 "use client";
 import {useCallback,useEffect,useRef,useState} from "react";
 import {type Branding,resolveBranding,brandStyle} from "@/lib/guest-branding";
-import {GuestBrandHeader} from "@/components/guest-branding";
+import {GuestPageHeader} from "@/components/guest-branding";
 import GuestBottomNav,{guestViewHref} from "@/components/guest-bottom-nav";
 import {orderProgress} from "@/lib/guest-order-progress";
 import {useGuestOrderEvents} from "@/lib/realtime/use-guest-order-events";
 import Link from "next/link";
 import {useParams} from "next/navigation";
-import {ArrowLeft,ArrowRight,Check,Clock3,RefreshCw,ShoppingBag,ChefHat,HandPlatter,CircleAlert} from "lucide-react";
+import {ArrowRight,Check,Clock3,RefreshCw,ShoppingBag,ChefHat,HandPlatter,CircleAlert} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type OrderStatus={orderNumber:string;status:string;totalAmount:number;createdAt:string};
 type MenuBranding={restaurantName:string;logoUrl?:string;theme?:string;tableName?:string;branding?:Branding};
@@ -45,7 +45,7 @@ export default function TrackOrderPage(){
  const Icon=progress.cancelled?CircleAlert:order?.status==="SERVED"||order?.status==="READY"?HandPlatter:order?.status==="PREPARING"?ChefHat:ShoppingBag;
  const connected=live==="connected"&&!error;
  return <main className="guest-theme min-h-screen pb-28" style={brandStyle(design)}>
-  <header className="guest-header"><div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:px-6"><Link aria-label="Back to orders" href={guestViewHref(qrToken,"orders")} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border"><ArrowLeft size={19}/></Link><div className="min-w-0 flex-1"><GuestBrandHeader branding={design}/></div>{branding?.tableName&&<span className="shrink-0 rounded-full bg-[var(--guest-tint)] px-3 py-1.5 text-[11px] font-semibold text-[var(--guest-primary-link)]">{branding.tableName}</span>}</div></header>
+  <GuestPageHeader branding={design} tableName={branding?.tableName}/>
   <div className="mx-auto max-w-lg px-4 py-6">
    <div className="mb-5 flex items-end justify-between gap-2"><div><p className="text-[10px] font-semibold uppercase tracking-[.15em] text-[var(--guest-link)]">Your order</p><h1 className="mt-1 text-2xl font-bold">Track your order</h1></div><span className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--guest-surface)] px-2.5 py-1.5 text-[10px] font-semibold text-[var(--guest-muted)]"><span className={"h-2 w-2 rounded-full "+(connected?"bg-[var(--guest-success)]":"bg-[var(--guest-muted)]")}/>{connected?"Live":live==="connecting"?"Connecting":"Offline"}</span></div>
    {loading&&!order?<section className="panel p-6 text-sm text-[var(--guest-muted)]">Loading your order…</section>:!order?<section className="panel p-6"><p role="alert" className="text-sm text-[var(--guest-danger)]">{error||"Order not found."}</p><button onClick={refresh} disabled={refreshing} className="ghost-button mt-4 inline-flex items-center gap-2"><RefreshCw size={15}/>{refreshing?"Checking…":"Try again"}</button></section>:<>
