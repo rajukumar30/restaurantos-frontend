@@ -20,7 +20,9 @@ type Menu={tableId:string;tableName:string;branchName:string;restaurantName:stri
 
 export default function GuestOrderPage(){
   const params=useParams<{qrToken:string}>();
-  const qrToken=params.qrToken;
+  return <GuestWorkspace key={params.qrToken} qrToken={params.qrToken}/>;
+}
+function GuestWorkspace({qrToken}:{qrToken:string}){
   const [menu,setMenu]=useState<Menu|null>(null);
   const [loading,setLoading]=useState(true);
   const [error,setError]=useState("");
@@ -186,15 +188,15 @@ export default function GuestOrderPage(){
   }
 
   function signOutGuest(){setHistoryToken("");setVerifiedOrders([]);setHistoryChallenge("");setHistoryCode("");setHistoryError("");localStorage.removeItem("restaurantos_verified_"+qrToken);}
-  function navigateGuest(page:GuestView){setTrackingId(null);setGuestPage(page);setOrdersOpen(page==="orders");setCategoryOpen(false);if(page==="menu")setActiveCategory("all");const href=guestViewHref(qrToken,page);if(window.location.pathname+window.location.search!==href)window.history.replaceState(window.history.state,"",href);window.scrollTo({top:0,behavior:"instant"});}
+  function navigateGuest(page:GuestView){setTrackingId(null);setGuestPage(page);setOrdersOpen(page==="orders");setCategoryOpen(false);if(page==="menu")setActiveCategory("all");const href=guestViewHref(qrToken,page).replace(/^\/order\//,window.location.pathname.startsWith("/guest/order/")?"/guest/order/":"/order/");if(window.location.pathname+window.location.search!==href)window.history.replaceState(window.history.state,"",href);window.scrollTo({top:0,behavior:"instant"});}
   function openTracking(event:MouseEvent<HTMLAnchorElement>,orderId:string){
     if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
     event.preventDefault();setTrackingId(orderId);setGuestPage("orders");setOrdersOpen(false);setReceipt(null);setShowCart(false);setAuthOpen(false);setSelectedDish(null);setCategoryOpen(false);
-    const href=guestTrackingHref(qrToken,orderId);if(window.location.pathname+window.location.search!==href)window.history.pushState(window.history.state,"",href);window.scrollTo({top:0,behavior:"instant"});
+    const href=guestTrackingHref(qrToken,orderId).replace(/^\/order\//,window.location.pathname.startsWith("/guest/order/")?"/guest/order/":"/order/");if(window.location.pathname+window.location.search!==href)window.history.pushState(window.history.state,"",href);window.scrollTo({top:0,behavior:"instant"});
   }
   const syncTrackedOrder=useCallback((id:string,status:OrderStatus)=>{
     setGuestOrders(current=>{if(!current.some(o=>o.orderId===id&&o.status!==status.status))return current;const next=current.map(o=>o.orderId===id?{...o,status:status.status}:o);try{localStorage.setItem("restaurantos_guest_orders_"+qrToken,JSON.stringify(next));}catch{/* storage unavailable */}return next;});
-    setVerifiedOrders(current=>current.map(o=>o.orderId===id?{...o,status:status.status}:o));
+    setVerifiedOrders(current=>current.some(o=>o.orderId===id&&o.status!==status.status)?current.map(o=>o.orderId===id?{...o,status:status.status}:o):current);
   },[qrToken]);
   const branding=resolveBranding(menu);
   const jump=(id:string)=>{setActiveCategory(id);setGuestPage("menu");setCategoryOpen(false);document.getElementById("guest-menu")?.scrollIntoView({behavior:"smooth"});};

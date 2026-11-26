@@ -22,28 +22,21 @@ export default function GuestService({qrToken,tableName,tableId}:{qrToken:string
  const [error,setError]=useState("");
  const [notes,setNotes]=useState("");
  const [otherOpen,setOtherOpen]=useState(false);
- const load=useCallback(async()=>{try{const r=await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{cache:"no-store"}));setRequests(r);setError("");}catch(e){setError(e instanceof Error?e.message:"Unable to load requests");}finally{setLoading(false);}},[qrToken]);
- useEffect(()=>{
-  let cancelled=false;
-  void (async()=>{
-   try {
-    const response=await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/availability",{cache:"no-store"});
-    if(!response.ok)throw Error("Service availability unavailable");
-    const payload=await response.json();
-    if(!cancelled)setAvailable(payload.success===true && payload.data===true);
-   } catch { if(!cancelled)setAvailable(false); }
-  })();
-  return()=>{cancelled=true;};
+ const load=useCallback(async(signal?:AbortSignal)=>{
+  try{
+   const response=await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{cache:"no-store",signal});
+   if(signal?.aborted)return;
+   if(response.status===403){setAvailable(false);setRequests([]);setError("");return;}
+   const result=await data(response);
+   if(!signal?.aborted){setAvailable(true);setRequests(result);setError("");}
+  }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:"Unable to load requests");}
+  finally{if(!signal?.aborted)setLoading(false);}
  },[qrToken]);
- useEffect(()=>{
-  if(available!==true)return;
-  void load();
-
- },[load,available]);
- const live=useGuestServiceEvents(available===true?qrToken:"",tableId,load);
+ useEffect(()=>{const controller=new AbortController();void load(controller.signal);return()=>controller.abort();},[load]);
+ const live=useGuestServiceEvents(available===true?qrToken:"",tableId,()=>{void load();});
  async function send(type:string){if(busy)return;if(type==="OTHER"&&!notes.trim()){setOtherOpen(true);return;}setBusy(type);setError("");try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,notes:type==="OTHER"?notes.trim():null})}));setOtherOpen(false);setNotes("");await load();}catch(e){setError(e instanceof Error?e.message:"Could not send request");}finally{setBusy("");}}
  async function cancel(id:string){setBusy(id);try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/"+id+"/cancel",{method:"PATCH"}));await load();}catch(e){setError(e instanceof Error?e.message:"Unable to cancel request");}finally{setBusy("");}}
- if(available!==true)return null;
+ if(available!==true)return <section className="panel mx-auto max-w-xl p-6"><h1 className="text-lg font-bold">Restaurant service</h1><p role={error?"alert":"status"} className="mt-2 text-sm text-[var(--guest-muted)]">{available===false?"Service requests are not available at this restaurant.":error||"Loading service options…"}</p>{error&&<button type="button" onClick={()=>{setError("");setLoading(true);void load();}} className="ghost-button mt-4">Try again</button>}</section>;
  return <section className="mx-auto max-w-xl pb-8">
   <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[var(--guest-link)]">{tableName}</p><h1 className="mt-2 text-2xl font-extrabold text-[var(--guest-text)]">How can we help?</h1><p className="mt-2 text-sm text-[var(--guest-muted)]">Choose what you need. Our staff will be notified.</p></div><div className="rounded-[var(--guest-radius)] bg-[var(--guest-tint)] p-3 text-[var(--guest-link)]"><BellRing size={23}/></div></div>
   <div className="mt-6 grid grid-cols-2 gap-3">{options.map(o=>{const Icon=o.icon;const active=requests.find(r=>r.type===o.type&&r.status!=="COMPLETED");return <button key={o.type} type="button" disabled={!!busy||!!active} onClick={()=>o.type==="OTHER"?setOtherOpen(true):void send(o.type)} className="min-h-[132px] rounded-[var(--guest-radius)] border border-[var(--guest-border)] bg-[var(--guest-surface)] p-4 text-left shadow-sm transition active:scale-[.98] disabled:opacity-65"><Icon size={23} className="text-[var(--guest-link)]"/><p className="mt-3 text-sm font-extrabold text-[var(--guest-text)]">{o.title}</p><p className="mt-1 text-[11px] leading-4 text-[var(--guest-muted)]">{active?"Already requested":o.description}</p></button>;})}</div>
