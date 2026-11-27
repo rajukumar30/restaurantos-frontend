@@ -1,0 +1,11 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import ts from "typescript";
+import Module from "node:module";
+const m=new Module("table-catalogue");m._compile(ts.transpileModule(fs.readFileSync("src/lib/table-catalogue.ts","utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,"table-catalogue.js");
+const {filterTables,tableSummary}=m.exports;
+const rows=[{tableNumber:"10",displayName:"Window table",seatingCapacity:4,active:true},{tableNumber:"2",displayName:"Table 2",seatingCapacity:2,active:true},{tableNumber:"3",displayName:"Window corner",seatingCapacity:8,active:false}];
+test("table number sort is numeric and leaves input unchanged",()=>{assert.deepEqual(filterTables(rows,"","all","all","number").map(t=>t.tableNumber),["2","3","10"]);assert.equal(rows[0].tableNumber,"10");});
+test("search, status and capacity filters combine",()=>{assert.equal(filterTables(rows," WINDOW ","active","3-4","name").length,1);assert.equal(filterTables(rows,"window","inactive","7+","number")[0].tableNumber,"3");assert.equal(filterTables(rows,"window","inactive","1-2","number").length,0);});
+test("seat summary counts active capacity rather than free seats",()=>assert.deepEqual(tableSummary(rows),{total:3,active:2,inactive:1,seats:6}));

@@ -1,143 +1,68 @@
 "use client";
-
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Download, ExternalLink, Plus, QrCode, Users, X } from "lucide-react";
+import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent,type ReactNode} from "react";
+import {ArrowLeft,Check,ChevronLeft,ChevronRight,Copy,Download,ExternalLink,Pencil,Plus,QrCode,RefreshCw,Search,Store,Users,X} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import {usePathname,useRouter} from "next/navigation";
 import QRCode from "qrcode";
+import {filterTables,tableSummary,type TableFilter,type TableSort} from "@/lib/table-catalogue";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-type Membership = { tenantId: string; tenantName: string; roles: string };
-type Branch = { id: string; name: string; branchCode: string };
-type RestaurantTable = { id: string; tableNumber: string; displayName: string; seatingCapacity: number; qrToken: string; active: boolean };
-type QrPreview = { table: RestaurantTable; image: string; url: string };
-
-export default function TablesPage() {
- const ownerRoute=usePathname().startsWith("/owner");
-  const router = useRouter();
-  const [token,setToken] = useState("");
-  const [demo,setDemo] = useState(false);
-  const [memberships,setMemberships] = useState<Membership[]>([]);
-  const [tenantId,setTenantId] = useState("");
-  const [branches,setBranches] = useState<Branch[]>([]);
-  const [branchId,setBranchId] = useState("");
-  const [tables,setTables] = useState<RestaurantTable[]>([]);
-  const [loading,setLoading] = useState(true);
-  const [saving,setSaving] = useState(false);
-  const [error,setError] = useState("");
-  const [notice,setNotice] = useState("");
-  const [showForm,setShowForm] = useState(false);
-  const [tableNumber,setTableNumber] = useState("");
-  const [displayName,setDisplayName] = useState("");
-  const [capacity,setCapacity] = useState("2");
-  const [qrPreview,setQrPreview] = useState<QrPreview|null>(null);
-
-  useEffect(()=>{
-    const accessToken=localStorage.getItem("restaurantos_access_token")??"";
-    const rawUser=localStorage.getItem("restaurantos_user");
-    if(!accessToken||!rawUser){
-      if(new URLSearchParams(window.location.search).get("demo")==="1"){
-        setDemo(true);setMemberships([{tenantId:"demo-restaurant",tenantName:"The Olive Kitchen",roles:"Owner"}]);
-        setTenantId("demo-restaurant");setBranches([{id:"demo-main",name:"Indiranagar · Main branch",branchCode:"MAIN"}]);
-        setBranchId("demo-main");setTables([
-          {id:"d1",tableNumber:"01",displayName:"Table 01",seatingCapacity:2,qrToken:"sample-table-01",active:true},
-          {id:"d2",tableNumber:"02",displayName:"Table 02",seatingCapacity:4,qrToken:"sample-table-02",active:true},
-          {id:"d3",tableNumber:"03",displayName:"Window table",seatingCapacity:4,qrToken:"sample-table-03",active:true},
-          {id:"d4",tableNumber:"04",displayName:"Table 04",seatingCapacity:6,qrToken:"sample-table-04",active:false}
-        ]);setLoading(false);return;
-      }
-      router.replace("/login");return;
-    }
-    try{
-      const user=JSON.parse(rawUser);const available:Membership[]=user.memberships??[];
-      if(!available.length){router.replace("/login");return;}
-      setToken(accessToken);setMemberships(available);setTenantId(available[0].tenantId);
-    }catch{router.replace("/login");}
-  },[router]);
-
-  useEffect(()=>{
-    if(!token||!tenantId)return;let cancelled=false;
-    async function loadBranches(){
-      setLoading(true);setError("");
-      try{
-        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`}});
-        const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Unable to load branches.");
-        if(!cancelled){setBranches(payload.data);setBranchId(current=>payload.data.some((b:Branch)=>b.id===current)?current:(payload.data[0]?.id??""));}
-      }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load branches.");}
-      finally{if(!cancelled)setLoading(false);}
-    }
-    loadBranches();return()=>{cancelled=true;};
-  },[token,tenantId]);
-
-  useEffect(()=>{
-    if(!token||!tenantId||!branchId)return;let cancelled=false;
-    async function loadTables(){
-      setLoading(true);setError("");
-      try{
-        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/tables?branchId=${branchId}`,{headers:{Authorization:`Bearer ${token}`}});
-        const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Unable to load tables.");
-        if(!cancelled)setTables(payload.data);
-      }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load tables.");}
-      finally{if(!cancelled)setLoading(false);}
-    }
-    loadTables();return()=>{cancelled=true;};
-  },[token,tenantId,branchId]);
-
-  const activeCount=useMemo(()=>tables.filter(t=>t.active).length,[tables]);
-  const guestUrl=(table:RestaurantTable)=>`${window.location.origin}/order/${table.qrToken}`;
-
-  async function createTable(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();setSaving(true);setError("");setNotice("");
-    try{
-      const response=await fetch(`${API}/api/v1/tenants/${tenantId}/tables`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({branchId,tableNumber,displayName:displayName.trim()||null,seatingCapacity:Number(capacity)})});
-      const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not create table.");
-      setTables(current=>[...current,payload.data].sort((a,b)=>a.tableNumber.localeCompare(b.tableNumber,undefined,{numeric:true})));
-      setTableNumber("");setDisplayName("");setCapacity("2");setShowForm(false);setNotice("Table created. Its QR code is ready to print.");
-    }catch(e){setError(e instanceof Error?e.message:"Unable to create table.");}
-    finally{setSaving(false);}
-  }
-
-  async function toggleTable(table:RestaurantTable){
-    if(demo)return;setError("");setNotice("");
-    try{
-      const response=await fetch(`${API}/api/v1/tenants/${tenantId}/tables/${table.id}`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({branchId,displayName:table.displayName,seatingCapacity:table.seatingCapacity,active:!table.active})});
-      const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Could not update table.");
-      setTables(current=>current.map(t=>t.id===table.id?payload.data:t));setNotice(`${table.displayName} is now ${table.active?"inactive":"active"}.`);
-    }catch(e){setError(e instanceof Error?e.message:"Unable to update table.");}
-  }
-
-  async function openQr(table:RestaurantTable){
-    const url=guestUrl(table);const image=await QRCode.toDataURL(url,{width:420,margin:2,errorCorrectionLevel:"H"});
-    setQrPreview({table,image,url});
-  }
-
-  function downloadQr(){
-    if(!qrPreview)return;const anchor=document.createElement("a");anchor.href=qrPreview.image;anchor.download=`restaurantos-${qrPreview.table.tableNumber}-qr.png`;anchor.click();
-  }
-
-  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
-
-  return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9">
-      <div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Tables & QR</div></div></div>
-      <div className="flex items-center gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link>{!demo&&<button onClick={logout} className="ghost-button">Sign out</button>}</div>
-    </header>
-    <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
-      <div className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-        <div><div className="eyebrow">Workspace / Floor setup</div><h1 className="mt-2 text-3xl font-bold tracking-[-.055em] sm:text-4xl">Tables & QR<span className="text-[#E56A42]">.</span></h1><p className="mt-3 text-sm text-[#77796f]">Create tables and give every seat area its own scan-to-order QR code.</p></div>
-        {!demo&&<button onClick={()=>setShowForm(v=>!v)} className="primary-button inline-flex items-center gap-2 self-start"><Plus size={15}/> Add table</button>}
-      </div>
-      {demo&&<div className="mb-5 rounded-xl border border-[#ead8bd] bg-[#fbf2df] px-4 py-3 text-xs text-[#87652d]">Demo preview · Sample tables only. QR codes and live table updates require a connected backend.</div>}
-      <div className="mb-6 flex flex-wrap items-center gap-3"><label className="text-xs text-[#77796f]">Restaurant</label>{memberships.length>1?<select value={tenantId} onChange={e=>{setTenantId(e.target.value);setBranchId("");}} className="ghost-button">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>:<span className="text-sm font-semibold">{memberships[0]?.tenantName}</span>}<label className="ml-2 text-xs text-[#77796f]">Branch</label><select value={branchId} onChange={e=>setBranchId(e.target.value)} className="ghost-button">{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></div>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3"><Metric label="Total tables" value={tables.length}/><Metric label="Active tables" value={activeCount}/><Metric label="Seats available" value={tables.filter(t=>t.active).reduce((sum,t)=>sum+t.seatingCapacity,0)}/></div>
-      {(error||notice)&&<div role={error?"alert":"status"} className={`mb-5 rounded-xl px-4 py-3 text-xs ${error?"bg-[#fbede7] text-[#a7442a]":"bg-[#eaf2e9] text-[#527a5b]"}`}>{error||notice}</div>}
-      {showForm&&<form onSubmit={createTable} className="panel mb-5 p-5 sm:p-6"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold">Add a table</h2><p className="mt-1 text-xs text-[#99998f]">A unique QR code will be generated automatically.</p></div><button type="button" onClick={()=>setShowForm(false)} aria-label="Close form"><X size={18}/></button></div><div className="grid gap-3 sm:grid-cols-3"><Field label="Table number" value={tableNumber} onChange={setTableNumber} placeholder="e.g. 01" required/><Field label="Display name" value={displayName} onChange={setDisplayName} placeholder="Optional, e.g. Window table"/><Field label="Seating capacity" value={capacity} onChange={setCapacity} placeholder="2" type="number" min="1" max="50" required/><button disabled={saving||!branchId} className="primary-button self-end disabled:opacity-50 sm:col-span-3 sm:justify-self-end">{saving?"Creating…":"Create table & QR"}</button></div></form>}
-      {loading?<div className="panel py-16 text-center text-sm text-[#99998f]">Loading tables…</div>:tables.length===0?<div className="panel px-6 py-16 text-center"><div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-[#f5eee5] text-[#d56a45]"><QrCode size={23}/></div><h2 className="mt-4 font-bold">No tables yet</h2><p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-[#99998f]">Add your first table. RestaurantOS will generate a unique QR token for guests to open the menu.</p>{!demo&&<button onClick={()=>setShowForm(true)} className="primary-button mt-5">Add first table</button>}</div>:<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{tables.map(table=><article key={table.id} className="panel p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-bold uppercase tracking-[.13em] text-[#99998f]">Table {table.tableNumber}</div><h2 className="mt-1 text-lg font-bold">{table.displayName}</h2></div><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${table.active?"bg-[#eaf2e9] text-[#527a5b]":"bg-[#efeee9] text-[#77796f]"}`}>{table.active?"Active":"Inactive"}</span></div><div className="mt-5 flex items-center gap-2 text-xs text-[#77796f]"><Users size={14}/> {table.seatingCapacity} seats</div><div className="mt-5 flex flex-wrap gap-2"><button onClick={()=>openQr(table)} disabled={!table.active} className="primary-button inline-flex items-center gap-2 disabled:opacity-40"><QrCode size={14}/> View QR</button>{!demo&&<button onClick={()=>toggleTable(table)} className="ghost-button">{table.active?"Deactivate":"Activate"}</button>}</div></article>)}</div>}
-      <p className="mt-7 text-center text-[10px] text-[#aaa99f]">{demo?"RestaurantOS table workspace preview · Sample data only":"QR codes are unique to a table and branch. Deactivated tables stop resolving for guests."}</p>
-    </div>
-    {qrPreview&&<div className="fixed inset-0 z-50 grid place-items-center bg-[#171916]/55 p-4" onClick={()=>setQrPreview(null)}><section role="dialog" aria-modal="true" aria-label="Table QR code" className="w-full max-w-sm rounded-2xl bg-[#fffefa] p-6 text-center shadow-2xl" onClick={e=>e.stopPropagation()}><div className="flex items-center justify-between"><div className="text-left"><div className="text-[10px] font-bold uppercase tracking-[.13em] text-[#99998f]">Guest scan code</div><h2 className="mt-1 text-lg font-bold">{qrPreview.table.displayName}</h2></div><button onClick={()=>setQrPreview(null)} aria-label="Close QR code" className="ghost-button !p-2"><X size={16}/></button></div><img src={qrPreview.image} alt={`QR code for ${qrPreview.table.displayName}`} className="mx-auto my-5 w-64 rounded-xl border border-[#eeeae2] p-2"/><p className="break-all text-[10px] text-[#85867d]">{qrPreview.url}</p><div className="mt-5 flex gap-2"><button onClick={downloadQr} className="primary-button flex-1 inline-flex items-center justify-center gap-2"><Download size={14}/> Download PNG</button><a href={qrPreview.url} target="_blank" rel="noreferrer" className="ghost-button inline-flex items-center gap-2"><ExternalLink size={14}/> Open</a></div><p className="mt-4 text-[10px] text-[#aaa99f]">Print this code and place it on the table.</p></section></div>}
-  </main>;
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
+type Membership={tenantId:string;tenantName:string;roles:string};
+type Branch={id:string;name:string;branchCode:string};
+type RestaurantTable={id:string;tableNumber:string;displayName:string;seatingCapacity:number;qrToken:string;active:boolean};
+type QrPreview={table:RestaurantTable;image:string;url:string};
+const pageSize=20;
+const button="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#dfe3d9] bg-white px-3 py-2 text-xs font-semibold hover:bg-[#f0f3ec] disabled:opacity-50";
+const primary="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#c75935] px-3.5 py-2 text-sm font-bold text-white hover:bg-[#b34c2d] disabled:opacity-50";
+const field="mt-1.5 w-full rounded-xl border border-[#dfe3d9] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#a8b9ab]";
+function Drawer({title,subtitle,children,footer,onClose,busy=false}:{title:string;subtitle?:string;children:ReactNode;footer?:ReactNode;onClose:()=>void;busy?:boolean}){
+ const ref=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{const dialog=ref.current;if(!dialog)return;const old=document.body.style.overflow;document.body.style.overflow="hidden";dialog.showModal();return()=>{dialog.close();document.body.style.overflow=old;};},[]);
+ return <dialog ref={ref} aria-label={title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose();}} className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-2xl bg-[#fffefa] p-0 text-[#202920] shadow-xl backdrop:bg-black/45 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none"><section className="flex max-h-[92dvh] flex-col sm:h-full sm:max-h-none"><header className="flex shrink-0 items-start justify-between gap-3 border-b p-4 sm:p-5"><div><h2 className="text-lg font-extrabold">{title}</h2>{subtitle&&<p className="mt-1 text-xs text-[#657168]">{subtitle}</p>}</div><button type="button" aria-label="Close" className={button} disabled={busy} onClick={onClose}><X size={18}/></button></header><div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>{footer&&<footer className="shrink-0 border-t bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))]">{footer}</footer>}</section></dialog>;
 }
-
-function Metric({label,value}:{label:string;value:number}){return <div className="panel p-5"><div className="text-xs text-[#85867d]">{label}</div><div className="mt-3 text-3xl font-bold tabular-nums">{value}</div></div>;}
-function Field({label,value,onChange,placeholder,type="text",required=false,min,max}:{label:string;value:string;onChange:(value:string)=>void;placeholder:string;type?:string;required?:boolean;min?:string;max?:string}){return <label className="block"><span className="text-xs font-semibold text-[#55584f]">{label}{required?" *":""}</span><input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required} min={min} max={max} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm outline-none focus:border-[#d68b6d]"/></label>;}
+export default function TablesPage(){
+ const owner=usePathname().startsWith("/owner"),router=useRouter();
+ const [token,setToken]=useState(""),[demo,setDemo]=useState(false),[memberships,setMemberships]=useState<Membership[]>([]),[tenantId,setTenantId]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branchId,setBranchId]=useState("");
+ const [tables,setTables]=useState<RestaurantTable[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState(""),[reload,setReload]=useState(0),[branchRetry,setBranchRetry]=useState(0);
+ const [search,setSearch]=useState(""),[filter,setFilter]=useState<TableFilter>("all"),[seats,setSeats]=useState("all"),[sort,setSort]=useState<TableSort>("number"),[page,setPage]=useState(1);
+ const [editor,setEditor]=useState<{item?:RestaurantTable}|null>(null),[tableNumber,setTableNumber]=useState(""),[displayName,setDisplayName]=useState(""),[capacity,setCapacity]=useState("2"),[formError,setFormError]=useState("");
+ const [saving,setSaving]=useState(false),[pending,setPending]=useState<string|null>(null),[qrPreview,setQrPreview]=useState<QrPreview|null>(null),[qrBusy,setQrBusy]=useState(false),[copied,setCopied]=useState(false);
+ const lock=useRef(false),qrSequence=useRef(0);
+ useEffect(()=>{const access=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!access||!raw){if(new URLSearchParams(window.location.search).get("demo")==="1"){setDemo(true);setMemberships([{tenantId:"demo-restaurant",tenantName:"The Olive Kitchen",roles:"Owner"}]);setTenantId("demo-restaurant");setBranches([{id:"demo-main",name:"Main branch",branchCode:"MAIN"}]);setBranchId("demo-main");setTables([{id:"d1",tableNumber:"01",displayName:"Table 01",seatingCapacity:2,qrToken:"sample-table-01",active:true},{id:"d2",tableNumber:"02",displayName:"Table 02",seatingCapacity:4,qrToken:"sample-table-02",active:true},{id:"d3",tableNumber:"03",displayName:"Window table",seatingCapacity:4,qrToken:"sample-table-03",active:true},{id:"d4",tableNumber:"04",displayName:"Table 04",seatingCapacity:6,qrToken:"sample-table-04",active:false}]);setLoading(false);return;}router.replace("/login");return;}try{const list:Membership[]=JSON.parse(raw).memberships??[];if(!list.length){router.replace("/login");return;}setToken(access);setMemberships(list);setTenantId(list[0].tenantId);}catch{router.replace("/login");}},[router]);
+ const request=useCallback(async(path:string,options:RequestInit={})=>{const response=await fetch(API+"/api/v1/tenants/"+encodeURIComponent(tenantId)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});if(response.status===401){router.replace("/login");throw Error("Session expired. Sign in again.");}const payload=await response.json();if(!response.ok||!payload.success)throw Error(payload.detail||payload.message||"Request failed.");return payload.data;},[tenantId,token,router]);
+ useEffect(()=>{if(!token||!tenantId)return;const abort=new AbortController();setLoading(true);setError("");setBranches([]);setBranchId("");setTables([]);request("/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){if(!Array.isArray(rows))throw Error("Invalid branch response.");setBranches(rows);setBranchId(rows[0]?.id??"");if(!rows.length)setLoading(false);}}).catch(e=>{if(!abort.signal.aborted){setError(e.message||"Unable to load branches.");setLoading(false);}});return()=>abort.abort();},[token,tenantId,request,branchRetry]);
+ useEffect(()=>{if(!token||!tenantId||!branchId)return;const abort=new AbortController();setLoading(true);setError("");request("/tables?branchId="+encodeURIComponent(branchId),{signal:abort.signal}).then((rows:RestaurantTable[])=>{if(!abort.signal.aborted){if(!Array.isArray(rows))throw Error("Invalid table response.");setTables(rows);}}).catch(e=>{if(!abort.signal.aborted)setError(e.message||"Unable to load tables.");}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});return()=>abort.abort();},[token,tenantId,branchId,request,reload]);
+ useEffect(()=>()=>{qrSequence.current++;},[]);
+ const summary=useMemo(()=>tableSummary(tables),[tables]);
+ const filtered=useMemo(()=>filterTables(tables,search,filter,seats,sort),[tables,search,filter,seats,sort]);
+ const pages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,pages),visible=filtered.slice((currentPage-1)*pageSize,currentPage*pageSize);
+ const branchName=branches.find(b=>b.id===branchId)?.name??"Select branch";
+ const blocked=loading||saving||!!pending||qrBusy||!branchId;
+ function clearFilters(){setSearch("");setFilter("all");setSeats("all");setSort("number");setPage(1);}
+ function changeScope(value:string,restaurant=false){if(blocked&&!!branchId)return;qrSequence.current++;setQrPreview(null);setQrBusy(false);setTables([]);setNotice("");setError("");setEditor(null);clearFilters();setLoading(true);if(restaurant){setBranchId("");setTenantId(value);}else setBranchId(value);}
+ function openEditor(item?:RestaurantTable){setFormError("");setTableNumber(item?.tableNumber??"");setDisplayName(item?.displayName??"");setCapacity(String(item?.seatingCapacity??2));setEditor({item});}
+ function json(method:string,body:unknown):RequestInit{return {method,headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};}
+ async function saveTable(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!editor||lock.current||demo||!branchId)return;const existing=editor.item;const name=displayName.trim(),number=tableNumber.trim(),n=Number(capacity);if(!number||existing&&!name||!Number.isInteger(n)||n<1||n>50){setFormError("Enter a valid table number, name and seating capacity (1–50).");return;}lock.current=true;setSaving(true);setFormError("");setNotice("");try{const updated:RestaurantTable=await request("/tables"+(existing?"/"+encodeURIComponent(existing.id):""),json(existing?"PATCH":"POST",existing?{branchId,displayName:name,seatingCapacity:n,active:existing.active}:{branchId,tableNumber:number,displayName:name||null,seatingCapacity:n}));setTables(old=>existing?old.map(t=>t.id===existing.id?updated:t):[...old,updated]);setEditor(null);setNotice(existing?"Table details updated. Existing QR code retained.":"Table created. Its QR code is ready to print.");if(!existing)clearFilters();}catch(e){setFormError(e instanceof Error?e.message:"Unable to save table.");}finally{lock.current=false;setSaving(false);}}
+ async function toggleTable(table:RestaurantTable){if(demo||lock.current||blocked)return;if(table.active&&!window.confirm("Deactivate "+table.displayName+"? Guests will no longer be able to open its QR ordering page."))return;lock.current=true;setPending(table.id);setError("");setNotice("");try{const updated:RestaurantTable=await request("/tables/"+encodeURIComponent(table.id),json("PATCH",{branchId,displayName:table.displayName,seatingCapacity:table.seatingCapacity,active:!table.active}));setTables(old=>old.map(t=>t.id===table.id?updated:t));setNotice(table.displayName+" is now "+(updated.active?"active":"inactive")+".");}catch(e){setError(e instanceof Error?e.message:"Unable to update table.");}finally{lock.current=false;setPending(null);}}
+ async function openQr(table:RestaurantTable){if(!table.active||qrBusy)return;const seq=++qrSequence.current;setQrBusy(true);setCopied(false);setError("");try{const url=window.location.origin+"/order/"+encodeURIComponent(table.qrToken);const image=await QRCode.toDataURL(url,{width:720,margin:4,errorCorrectionLevel:"H"});if(seq===qrSequence.current)setQrPreview({table,image,url});}catch{if(seq===qrSequence.current)setError("Unable to generate QR preview. Please retry.");}finally{if(seq===qrSequence.current)setQrBusy(false);}}
+ function downloadQr(){if(!qrPreview)return;const a=document.createElement("a");a.href=qrPreview.image;a.download="krlio-"+qrPreview.table.tableNumber.replace(/[^a-zA-Z0-9_-]/g,"-")+"-qr.png";a.click();}
+ async function copyLink(){if(!qrPreview)return;try{await navigator.clipboard.writeText(qrPreview.url);setCopied(true);}catch{setCopied(false);}}
+ return <main className="min-h-screen bg-[#f5f6f1] text-[#202920]">
+ {!owner&&<header className="flex items-center gap-3 border-b bg-white px-4 py-3"><Link href="/" className={button}><ArrowLeft size={16}/> Dashboard</Link><span className="text-sm font-bold">Krlio</span></header>}
+ <div className="mx-auto max-w-[1500px] px-3 py-4 sm:px-6">
+ <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#718073]">Floor setup</p><h1 className="text-2xl font-extrabold tracking-tight">Tables &amp; QR</h1></div>{!demo&&<button className={primary} disabled={blocked} onClick={()=>openEditor()}><Plus size={17}/> Add table</button>}</div>
+ <div className="mt-3 flex flex-wrap items-center gap-2">{memberships.length>1&&<select aria-label="Restaurant" value={tenantId} disabled={loading||saving||!!pending||qrBusy} className={button+" max-w-full"} onChange={e=>changeScope(e.target.value,true)}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}<label className="flex min-w-0 items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold"><Store size={16}/><select aria-label="Branch" value={branchId} disabled={loading||saving||!!pending||qrBusy} onChange={e=>changeScope(e.target.value)} className="max-w-[220px] bg-transparent outline-none">{!branches.length&&<option value="">Select branch</option>}{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>{!demo&&<button aria-label="Refresh tables" className={button+" ml-auto"} disabled={loading||saving||!!pending||qrBusy} onClick={()=>branchId?setReload(v=>v+1):setBranchRetry(v=>v+1)}><RefreshCw size={15}/><span className="hidden sm:inline">Refresh</span></button>}</div>
+ {demo&&<p className="mt-3 rounded-lg bg-amber-50 p-2 text-xs text-amber-800">Sample tables. Live table changes and guest links are disabled.</p>}
+ <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-3">{[{name:"Tables",value:summary.total,key:"all"},{name:"Active",value:summary.active,key:"active"},{name:"Inactive",value:summary.inactive,key:"inactive"},{name:"Active seats",value:summary.seats,key:null}].map((s,i)=><button key={s.name} disabled={s.key===null} onClick={()=>{if(s.key){setFilter(s.key as TableFilter);setPage(1);}}} className={"rounded-xl border bg-white px-2 py-2.5 text-left sm:p-3 "+(s.key===filter?"border-[#a2b4a0]":"border-[#e1e5da]")}><p className="text-[10px] font-medium text-[#657168] sm:text-xs">{s.name}</p><p className={"mt-1 text-xl font-extrabold tabular-nums "+(i===1?"text-[#46734e]":"")}>{loading?"—":s.value}</p></button>)}</div>
+ <section className="mt-4 min-w-0">
+ <div className="sticky top-[76px] z-10 rounded-xl border border-[#e1e5da] bg-[#fffefa] p-2.5 shadow-sm"><div className="flex gap-2"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border bg-white px-3"><Search size={17} className="shrink-0 text-[#718073]"/><input aria-label="Search table number or name" value={search} maxLength={80} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search table number or name" className="w-full min-w-0 bg-transparent py-2.5 text-sm outline-none"/>{search&&<button aria-label="Clear search" onClick={()=>{setSearch("");setPage(1);}}><X size={16}/></button>}</label><select aria-label="Sort tables" className={button+" max-w-[105px] sm:max-w-[160px]"} value={sort} onChange={e=>{setSort(e.target.value as TableSort);setPage(1);}}><option value="number">Number</option><option value="name">Name A–Z</option><option value="seats-low">Seats ↑</option><option value="seats-high">Seats ↓</option></select></div><div className="mt-2 flex flex-wrap items-center gap-1.5">{([{key:"all",name:"All"},{key:"active",name:"Active"},{key:"inactive",name:"Inactive"}] as const).map(s=><button key={s.key} aria-pressed={filter===s.key} onClick={()=>{setFilter(s.key);setPage(1);}} className={"rounded-full px-3 py-1.5 text-xs font-semibold "+(filter===s.key?"bg-[#213d32] text-white":"bg-[#edf0e9] text-[#455348]")}>{s.name}</button>)}<select aria-label="Seating capacity filter" value={seats} onChange={e=>{setSeats(e.target.value);setPage(1);}} className="ml-auto max-w-full rounded-lg border bg-white px-2 py-1.5 text-xs font-semibold"><option value="all">All seats</option><option value="1-2">1–2 seats</option><option value="3-4">3–4 seats</option><option value="5-6">5–6 seats</option><option value="7+">7+ seats</option></select></div></div>
+ {(error||notice)&&<p role={error?"alert":"status"} className={"mt-3 rounded-lg px-3 py-2 text-xs "+(error?"bg-red-50 text-red-800":"bg-green-50 text-green-800")}>{error||notice}</p>}
+ <div className="my-3 flex items-center justify-between"><p className="text-xs text-[#657168]">{loading?"Loading tables…":filtered.length+" tables found"}</p>{(search||filter!=="all"||seats!=="all"||sort!=="number")&&<button className="text-xs font-semibold text-[#a34c2e]" onClick={clearFilters}>Reset filters</button>}</div>
+ {loading?<div role="status" className="rounded-xl border bg-white p-8 text-center text-sm text-[#657168]">Loading tables…</div>:!branchId?<div className="rounded-xl border bg-white p-6 text-center text-sm">No branch selected. {!demo&&<button className={button+" mt-2"} onClick={()=>setBranchRetry(v=>v+1)}>Retry</button>}</div>:!visible.length?<div className="rounded-xl border bg-white p-8 text-center"><QrCode size={26} className="mx-auto text-[#718073]"/><h2 className="mt-3 text-sm font-bold">{error?"Unable to display tables":tables.length?"No matching tables":"No tables yet"}</h2><button className={button+" mt-3"} disabled={!error&&!tables.length&&demo} onClick={error?()=>setReload(v=>v+1):tables.length?clearFilters:()=>openEditor()}>{error?"Retry":tables.length?"Clear filters":"Add first table"}</button></div>:<div className="overflow-hidden rounded-xl border border-[#e1e5da] bg-white"><div className="hidden grid-cols-[minmax(120px,1.7fr)_80px_100px_110px_160px] gap-3 bg-[#edf0e9] px-4 py-3 text-[11px] font-semibold text-[#657168] lg:grid"><span>Table</span><span>Seats</span><span>Status</span><span>QR code</span><span>Actions</span></div>{visible.map(t=><article key={t.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 border-b border-[#e9ece5] px-3 py-3 last:border-0 lg:grid-cols-[minmax(120px,1.7fr)_80px_100px_110px_160px] lg:gap-3 lg:px-4"><div className="flex min-w-0 items-center gap-2"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[#eaf0e8] text-[#52765b]"><QrCode size={19}/></div><div className="min-w-0"><p className="truncate text-sm font-bold" title={t.displayName}>{t.displayName}</p><p className="mt-0.5 text-[10px] text-[#657168]">#{t.tableNumber}<span className="lg:hidden"> · {t.seatingCapacity} seats</span></p></div></div><span className="hidden text-xs lg:flex lg:items-center lg:gap-1"><Users size={14}/> {t.seatingCapacity}</span><div className="justify-self-end lg:justify-self-start"><span className={"rounded-full px-2 py-1 text-[10px] font-bold "+(t.active?"bg-[#eaf2e9] text-[#426a4b]":"bg-[#efeee9] text-[#62675d]")}>{t.active?"Active":"Inactive"}</span></div><div className="flex items-center"><button className={button} disabled={!t.active||qrBusy||demo||blocked} onClick={()=>void openQr(t)}><QrCode size={15}/> View QR</button></div><div className="flex items-center justify-end gap-1.5 lg:justify-start">{!demo&&<><button aria-label={"Edit "+t.displayName} title="Edit table" className={button+" !px-2.5"} disabled={blocked} onClick={()=>openEditor(t)}><Pencil size={15}/></button><button className={button+" "+(t.active?"text-[#a34c2e]":"text-[#426a4b]")} disabled={blocked} onClick={()=>void toggleTable(t)}>{pending===t.id?"Saving…":t.active?"Deactivate":"Activate"}</button></>}</div></article>)}</div>}
+ {!loading&&filtered.length>0&&<div className="mt-3 flex items-center justify-between rounded-xl border bg-white p-3 text-xs"><span>{(currentPage-1)*pageSize+1}–{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length}</span><div className="flex items-center gap-2"><button aria-label="Previous page" className={button} disabled={currentPage<=1} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={16}/></button><span>{currentPage} / {pages}</span><button aria-label="Next page" className={button} disabled={currentPage>=pages} onClick={()=>setPage(currentPage+1)}><ChevronRight size={16}/></button></div></div>}
+ <p className="mt-4 text-xs text-[#657168]">Active seats are configured seating capacity, not live occupancy. Deactivated tables cannot accept new QR orders.</p>
+ </section></div>
+ {editor&&<Drawer title={editor.item?"Edit table":"Add table"} subtitle={branchName} busy={saving} onClose={()=>setEditor(null)} footer={<div className="flex gap-2"><button className={button+" flex-1"} disabled={saving} onClick={()=>setEditor(null)}>Cancel</button><button form="table-editor" type="submit" disabled={saving} className={primary+" flex-[2]"}>{saving?"Saving…":editor.item?"Save changes":"Create table & QR"}</button></div>}><form id="table-editor" onSubmit={saveTable} className="space-y-4"><label className="block text-xs font-semibold">Table number *<input required maxLength={30} className={field} value={tableNumber} disabled={!!editor.item||saving} onChange={e=>setTableNumber(e.target.value)} placeholder="e.g. 01"/></label><label className="block text-xs font-semibold">Display name {editor.item?"*":"(optional)"}<input required={!!editor.item} maxLength={80} className={field} value={displayName} disabled={saving} onChange={e=>setDisplayName(e.target.value)} placeholder="e.g. Window table"/></label><label className="block text-xs font-semibold">Seating capacity *<input required min="1" max="50" step="1" type="number" className={field} value={capacity} disabled={saving} onChange={e=>setCapacity(e.target.value)}/></label><div className="flex gap-2">{[2,4,6,8].map(n=><button type="button" key={n} disabled={saving} aria-pressed={capacity===String(n)} className={button+(capacity===String(n)?" !bg-[#e4ede2] !border-[#63806a]":"")} onClick={()=>setCapacity(String(n))}>{n} seats</button>)}</div><p className="rounded-xl bg-[#edf0e9] p-3 text-xs text-[#455348]">{editor.item?"The table number and existing QR code remain unchanged.":"A unique QR code is generated automatically for this table."}</p>{formError&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-800">{formError}</p>}</form></Drawer>}
+ {qrPreview&&<Drawer title={qrPreview.table.displayName} subtitle={branchName+" · "+qrPreview.table.seatingCapacity+" seats"} onClose={()=>setQrPreview(null)} footer={<div className="grid gap-2"><button className={primary} onClick={downloadQr}><Download size={16}/> Download PNG</button><div className="grid grid-cols-2 gap-2"><button className={button} onClick={()=>void copyLink()}>{copied?<Check size={15}/>:<Copy size={15}/>} {copied?"Copied":"Copy link"}</button><a href={qrPreview.url} target="_blank" rel="noopener noreferrer" className={button}><ExternalLink size={15}/> Open menu</a></div></div>}><div className="mx-auto max-w-[280px] rounded-2xl border bg-white p-3"><img src={qrPreview.image} alt={"QR code for "+qrPreview.table.displayName} className="mx-auto w-full"/></div><p className="mt-4 text-center text-sm font-bold">Scan to order</p><p className="mt-1 text-center text-xs text-[#657168]">Print this code and place it on the table.</p><label className="mt-4 block text-xs font-semibold">Guest link<input readOnly value={qrPreview.url} className={field} onFocus={e=>e.target.select()}/></label><p className="mt-2 text-xs text-[#657168]">If copying is unavailable, select and copy the link above.</p></Drawer>}
+ </main>;
+}
