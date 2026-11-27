@@ -8,3 +8,5 @@ const {upiUri}=m.exports;
 const bill={status:"PAYMENT_PENDING",upiId:"merchant@bank",merchantName:"Anjali & Co",due:1284,billNumber:"B123"};
 test("UPI URI uses locked merchant and exact outstanding balance",()=>{const uri=new URL(upiUri(bill));assert.equal(uri.protocol,"upi:");assert.equal(uri.searchParams.get("pa"),"merchant@bank");assert.equal(uri.searchParams.get("am"),"1284.00");assert.equal(uri.searchParams.get("pn"),"Anjali & Co");assert.equal(uri.searchParams.get("cu"),"INR");});
 test("never generates payment QR for open or settled bills or missing merchant",()=>{for(const status of ["OPEN","PAID","CLOSED"])assert.equal(upiUri({...bill,status}),"");assert.equal(upiUri({...bill,upiId:null}),"");assert.equal(upiUri({...bill,due:0}),"");assert.equal(upiUri({...bill,upiId:"invalid"}),"");});
+
+test("disputed bills never generate a UPI link",()=>assert.equal(upiUri({...bill,disputes:1}),""));
