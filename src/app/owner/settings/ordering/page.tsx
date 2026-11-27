@@ -1,16 +1,2 @@
-"use client";
-import {useCallback,useEffect,useState} from "react";
-import {useRouter} from "next/navigation";
-import OrderingSecurityPanel from "@/components/ordering-security-panel";
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
-type Membership={tenantId:string;tenantName:string};
-type Branch={id:string;name:string};
-const noop=()=>{};
-export default function OrderingSettingsPage(){
- const router=useRouter();
- const [token,setToken]=useState(""),[members,setMembers]=useState<Membership[]>([]),[tenant,setTenant]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branch,setBranch]=useState(""),[error,setError]=useState(""),[loading,setLoading]=useState(true);
- useEffect(()=>{try{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw)throw Error();const m:Membership[]=JSON.parse(raw).memberships??[];if(!m.length)throw Error();setToken(t);setMembers(m);setTenant(m[0].tenantId);}catch{router.replace("/login");}},[router]);
- const request=useCallback(async(path:string,options:RequestInit={})=>{const r=await fetch(API+"/api/v1/tenants/"+encodeURIComponent(tenant)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});const p=await r.json().catch(()=>null);if(r.status===401)router.replace("/login");if(!r.ok||!p?.success)throw Error(p?.detail||p?.message||"Request failed ("+r.status+")");return p.data;},[tenant,token,router]);
- useEffect(()=>{if(!tenant||!token)return;const abort=new AbortController();setLoading(true);setBranches([]);setBranch("");setError("");request("/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){setBranches(rows);setBranch(rows[0]?.id??"");}}).catch(e=>{if(!abort.signal.aborted)setError(e instanceof Error?e.message:"Unable to load branches");}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});return()=>abort.abort();},[request,tenant,token]);
- return <main className="mx-auto max-w-5xl p-4 sm:p-8"><h1 className="text-2xl font-extrabold">Ordering settings</h1><p className="mt-1 text-sm text-[#657168]">Choose how guests order and configure protection for each branch.</p><div className="mt-4 flex flex-wrap gap-3">{members.length>1&&<label className="text-xs font-semibold">Restaurant<select className="mt-1 block rounded-lg border bg-white p-2" value={tenant} onChange={e=>{setBranch("");setBranches([]);setTenant(e.target.value);}}>{members.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label>}<label className="text-xs font-semibold">Branch<select className="mt-1 block rounded-lg border bg-white p-2" disabled={loading||!branches.length} value={branch} onChange={e=>setBranch(e.target.value)}>{!branches.length&&<option value="">Select branch</option>}{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label></div>{error&&<p role="alert" className="mt-4 text-sm text-red-800">{error}</p>}{loading&&<p className="mt-4 text-sm">Loading branches…</p>}{!loading&&!error&&!branches.length&&<p className="mt-4 text-sm">No branches are available.</p>}{branch&&<OrderingSecurityPanel key={tenant+":"+branch} request={request} branch={branch} owner snapshot={null} onChanged={noop} settingsOnly/>}</main>;
-}
+import {redirect} from "next/navigation";
+export default function LegacyOrderingSettings(){redirect("/owner/tables");}
