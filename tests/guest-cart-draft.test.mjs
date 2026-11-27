@@ -1,0 +1,12 @@
+import {test} from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import ts from "typescript";
+import Module from "node:module";
+const m=new Module("guest-cart-draft");m._compile(ts.transpileModule(fs.readFileSync("src/lib/guest-cart-draft.ts","utf8"),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,"guest-cart-draft.js");
+const {emptyGuestDraft,readGuestDraft,attachGuestDraft}=m.exports;
+const id="11111111-1111-1111-1111-111111111111",visit="22222222-2222-2222-2222-222222222222",other="33333333-3333-3333-3333-333333333333",now=1800000000000;
+const draft={visitId:null,cart:{[id]:2},notes:"No chilli",updatedAt:now-10};
+test("browse before joining, then attach cart to verified visit",()=>assert.deepEqual(attachGuestDraft(draft,visit,now),{...draft,visitId:visit,updatedAt:now}));
+test("same visit re-verification preserves selections; different visit clears them",()=>{const joined=attachGuestDraft(draft,visit,now);assert.equal(attachGuestDraft(joined,visit,now),joined);assert.deepEqual(attachGuestDraft(joined,other,now),{...emptyGuestDraft(),visitId:other,updatedAt:now});});
+test("restore valid session cart only; discard expired or invalid entries",()=>{assert.deepEqual(readGuestDraft(JSON.stringify(draft),now),draft);assert.deepEqual(readGuestDraft(JSON.stringify(draft),now+12*3600000),emptyGuestDraft());assert.deepEqual(readGuestDraft("bad",now),emptyGuestDraft());assert.deepEqual(readGuestDraft(JSON.stringify({...draft,cart:{[id]:21,[other]:2,invalid:1}}),now).cart,{[other]:2});});

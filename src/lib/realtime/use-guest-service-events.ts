@@ -1,0 +1,47 @@
+"use client";
+import {useEffect,useRef,useState} from "react";
+import {Client} from "@stomp/stompjs";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
+export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=>void,topic:"service-requests"|"bill"="service-requests",sessionToken=""){
+ const [status,setStatus]=useState<"connecting"|"connected"|"disconnected">("disconnected");
+ const latest=useRef(onChange);
+ useEffect(()=>{latest.current=onChange;},[onChange]);
+ useEffect(()=>{
+  if(!qrToken||!tableId||!sessionToken)return;
+  let active=true;
+  let refreshTimer:ReturnType<typeof setTimeout>|undefined;
+  let lastRefresh=0;
+  const scheduleRefresh=()=>{
+   if(!active||refreshTimer!==undefined)return;
+   refreshTimer=setTimeout(()=>{
+    refreshTimer=undefined;
+    if(!active)return;
+    lastRefresh=Date.now();
+    latest.current();
+   },Math.max(0,350-(Date.now()-lastRefresh)));
+  };
+  const refresh=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
+  window.addEventListener("focus",refresh);
+  document.addEventListener("visibilitychange",refresh);
+  const client=new Client({
+   brokerURL:API.replace(/^http/,"ws").replace(/\/$/,"")+"/ws/realtime",
+   connectHeaders:{"X-Guest-QR":qrToken,"X-Dining-Session":sessionToken},
+   reconnectDelay:3000,
+   heartbeatIncoming:10000,
+   heartbeatOutgoing:10000,
+   onConnect:()=>{
+    if(!active)return;
+    setStatus("connected");
+    client.subscribe("/topic/guest/tables/"+tableId+"/"+topic,()=>{if(active)scheduleRefresh();});
+    scheduleRefresh();
+   },
+   onWebSocketClose:()=>{if(active)setStatus("disconnected");},
+   onStompError:()=>{if(active)setStatus("disconnected");},
+   onWebSocketError:()=>{if(active)setStatus("disconnected");}
+  });
+  setStatus("connecting");
+  client.activate();
+  return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
+ },[qrToken,tableId,topic,sessionToken]);
+ return status;
+}

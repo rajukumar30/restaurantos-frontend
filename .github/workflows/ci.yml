@@ -1,0 +1,26 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [main, develop, "chore/**", "feature/**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install
+      - name: Type check
+        run: npm run typecheck
+      - name: Verify guest and order regressions
+        run: node --test tests/guest-theme.test.mjs tests/guest-order-progress.test.mjs tests/guest-routes.test.mjs tests/order-dates.test.mjs tests/table-catalogue.test.mjs tests/staff-directory.test.mjs tests/floor-state.test.mjs tests/checkout.test.mjs tests/guest-cart-draft.test.mjs tests/workspace-fetch.test.mjs tests/workspace-socket.test.mjs
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build

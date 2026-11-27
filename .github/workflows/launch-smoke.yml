@@ -1,0 +1,19 @@
+name: Production launch smoke
+on:
+  workflow_dispatch:
+  push:
+    branches: ["chore/bootstrap"]
+    paths:
+      - "scripts/launch-smoke.mjs"
+      - ".github/workflows/launch-smoke.yml"
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Check live health and anonymous API access
+        run: node scripts/launch-smoke.mjs
