@@ -18,8 +18,8 @@ jobs:
         run: npm install
       - name: Type check
         run: npm run typecheck
-      - name: Verify theme contrast
-        run: node --test tests/guest-theme.test.mjs tests/guest-order-progress.test.mjs tests/guest-routes.test.mjs
+      - name: Verify guest and order regressions
+        run: node --test tests/guest-theme.test.mjs tests/guest-order-progress.test.mjs tests/guest-routes.test.mjs tests/order-dates.test.mjs
       - name: Lint
         run: npm run lint
       - name: Production build

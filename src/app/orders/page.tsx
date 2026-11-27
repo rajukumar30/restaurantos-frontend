@@ -5,6 +5,7 @@ import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {useOptimisticStatus} from "@/lib/use-optimistic-status";
+import {offsetDay,prettyDay,localDay,orderTime} from "@/lib/order-dates";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Membership={tenantId:string;tenantName:string;roles:string};
 type Branch={id:string;name:string;branchCode:string};
@@ -18,9 +19,6 @@ const tone:Record<string,string>={NEW:"bg-[#fbede7] text-[#a34c2e]",ACCEPTED:"bg
 const button="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#dfe3d9] bg-white px-3 py-2 text-xs font-semibold disabled:opacity-50";
 const primary="inline-flex min-h-10 items-center justify-center rounded-xl bg-[#dc6944] px-3 py-2 text-xs font-bold text-white disabled:opacity-50";
 const money=(n:number)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(n);
-function offsetDay(date:string,delta:number){const value=new Date(date+"T12:00:00Z");value.setUTCDate(value.getUTCDate()+delta);return value.toISOString().slice(0,10);}
-function prettyDay(date:string){return new Intl.DateTimeFormat("en-IN",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"}).format(new Date(date+"T12:00:00Z"));}
-function localDay(value:string,timezone:string){const parts=new Intl.DateTimeFormat("en-GB",{timeZone:timezone,year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(value));return ["year","month","history"].map(t=>parts.find(p=>p.type===t)?.value).join("-");}
 export default function OrdersPage(){
  const pathname=usePathname(),router=useRouter(),embedded=pathname.startsWith("/owner")||pathname.startsWith("/staff");
  const [token,setToken]=useState(""),[memberships,setMemberships]=useState<Membership[]>([]),[tenant,setTenant]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branch,setBranch]=useState("");
@@ -51,7 +49,7 @@ export default function OrdersPage(){
  const activeRows=optimistic.rows.filter(o=>(mode!=="live"||!!nextStatus[o.status])&&(status==="ALL"||o.status===status));
  const currentDate=mode==="history"?date:"";
  const tz=data?.timezone||"Asia/Kolkata";
- const time=(value:string)=>new Intl.DateTimeFormat("en-IN",{timeZone:tz,hour:"numeric",minute:"2-digit"}).format(new Date(value));
+ const time=(value:string)=>orderTime(value,tz);
  const current=snapScope.current===scope?data:null;
  const counts=current?.counts??{};const branchName=branches.find(b=>b.id===branch)?.name||"Select branch";
  const countPages=Math.max(1,Math.ceil((data?.total??0)/20)),currentPage=data?.page??page;
