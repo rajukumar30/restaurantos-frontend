@@ -14,7 +14,7 @@ const options=[
 ];
 const names:Record<string,string>=Object.fromEntries(options.map(o=>[o.type,o.title]));
 async function data(res:Response){const body=await res.json();if(!res.ok||!body.success)throw Error(body.message||"Unable to reach restaurant staff");return body.data;}
-export default function GuestService({qrToken,tableName,tableId}:{qrToken:string;tableName:string;tableId:string}){
+export default function GuestService({qrToken,tableName,tableId,sessionToken,onSessionCheck}:{qrToken:string;tableName:string;tableId:string;sessionToken:string;onSessionCheck:()=>Promise<void>}){
  const [requests,setRequests]=useState<Request[]>([]);
  const [available,setAvailable]=useState<boolean|null>(null);
  const [loading,setLoading]=useState(true);
@@ -24,18 +24,18 @@ export default function GuestService({qrToken,tableName,tableId}:{qrToken:string
  const [otherOpen,setOtherOpen]=useState(false);
  const load=useCallback(async(signal?:AbortSignal)=>{
   try{
-   const response=await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{cache:"no-store",signal});
+   const response=await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{cache:"no-store",signal,headers:{"X-Dining-Session":sessionToken}});
    if(signal?.aborted)return;
-   if(response.status===403){setAvailable(false);setRequests([]);setError("");return;}
+   if(response.status===403){void onSessionCheck();setAvailable(false);setRequests([]);setError("");return;}
    const result=await data(response);
    if(!signal?.aborted){setAvailable(true);setRequests(result);setError("");}
   }catch(e){if(!signal?.aborted)setError(e instanceof Error?e.message:"Unable to load requests");}
   finally{if(!signal?.aborted)setLoading(false);}
- },[qrToken]);
+ },[qrToken,sessionToken,onSessionCheck]);
  useEffect(()=>{const controller=new AbortController();void load(controller.signal);return()=>controller.abort();},[load]);
- const live=useGuestServiceEvents(available===true?qrToken:"",tableId,()=>{void load();});
- async function send(type:string){if(busy)return;if(type==="OTHER"&&!notes.trim()){setOtherOpen(true);return;}setBusy(type);setError("");try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type,notes:type==="OTHER"?notes.trim():null})}));setOtherOpen(false);setNotes("");await load();}catch(e){setError(e instanceof Error?e.message:"Could not send request");}finally{setBusy("");}}
- async function cancel(id:string){setBusy(id);try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/"+id+"/cancel",{method:"PATCH"}));await load();}catch(e){setError(e instanceof Error?e.message:"Unable to cancel request");}finally{setBusy("");}}
+ const live=useGuestServiceEvents(available===true?qrToken:"",tableId,()=>{void load();},"service-requests",sessionToken);
+ async function send(type:string){if(busy)return;if(type==="OTHER"&&!notes.trim()){setOtherOpen(true);return;}setBusy(type);setError("");try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests",{method:"POST",headers:{"Content-Type":"application/json","X-Dining-Session":sessionToken},body:JSON.stringify({type,notes:type==="OTHER"?notes.trim():null})}));setOtherOpen(false);setNotes("");await load();}catch(e){void onSessionCheck();setError(e instanceof Error?e.message:"Could not send request");}finally{setBusy("");}}
+ async function cancel(id:string){setBusy(id);try{await data(await fetch(API+"/api/v1/public/qr/"+encodeURIComponent(qrToken)+"/service-requests/"+id+"/cancel",{method:"PATCH",headers:{"X-Dining-Session":sessionToken}}));await load();}catch(e){void onSessionCheck();setError(e instanceof Error?e.message:"Unable to cancel request");}finally{setBusy("");}}
  if(available!==true)return <section className="panel mx-auto max-w-xl p-6"><h1 className="text-lg font-bold">Restaurant service</h1><p role={error?"alert":"status"} className="mt-2 text-sm text-[var(--guest-muted)]">{available===false?"Service requests are not available at this restaurant.":error||"Loading service options…"}</p>{error&&<button type="button" onClick={()=>{setError("");setLoading(true);void load();}} className="ghost-button mt-4">Try again</button>}</section>;
  return <section className="mx-auto max-w-xl pb-8">
   <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-widest text-[var(--guest-link)]">{tableName}</p><h1 className="mt-2 text-2xl font-extrabold text-[var(--guest-text)]">How can we help?</h1><p className="mt-2 text-sm text-[var(--guest-muted)]">Choose what you need. Our staff will be notified.</p></div><div className="rounded-[var(--guest-radius)] bg-[var(--guest-tint)] p-3 text-[var(--guest-link)]"><BellRing size={23}/></div></div>
