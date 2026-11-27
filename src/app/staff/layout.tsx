@@ -9,7 +9,7 @@ const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.
 async function fetchWithTimeout(url:string,headers:HeadersInit,signal?:AbortSignal){const controller=new AbortController();const abort=()=>controller.abort();signal?.addEventListener("abort",abort,{once:true});if(signal?.aborted)abort();const timeout=setTimeout(abort,20000);try{return await fetch(url,{headers,signal:controller.signal,cache:"no-store"});}finally{clearTimeout(timeout);signal?.removeEventListener("abort",abort);}}
 type Access={roles:string[];permissions:string[]};
 type Feature={key:string;effectiveEnabled:boolean};
-const featureForRoute=(href:string):string|null=>href.includes("/kitchen")?"KITCHEN_DISPLAY":href.includes("/waiter")||href==="/staff/tables"?"WAITER_DASHBOARD":null;
+const featureForRoute=(href:string):string|null=>href==="/staff/floor"?"GUEST_ORDERING":href.includes("/kitchen")?"KITCHEN_DISPLAY":href.includes("/waiter")||href==="/staff/tables"?"WAITER_DASHBOARD":null;
 type NavItem={href:string;label:string;icon:typeof LayoutDashboard};
 const navigation:NavItem[]=[
  {href:"/staff/manager",label:"Dashboard",icon:LayoutDashboard},
@@ -104,6 +104,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  (href==="/staff/tables"&&waiter&&access.permissions.includes("orders:manage"))||
  (href==="/staff/billing"&&cashier&&access.permissions.includes("payments:read")));
  const extra=[
+  ...((manager||waiter)&&access.permissions.includes("floor:read")?[{href:"/staff/floor",label:"Live Floor",icon:LayoutDashboard}]:[]),
   ...(kitchen&&access.permissions.includes("kitchen:operate")?[
    {href:"/staff/operations/kitchen-history",label:"Kitchen history",icon:History}]:[]),
   ...(waiter&&access.permissions.includes("orders:manage")?[
