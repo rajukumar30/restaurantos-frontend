@@ -3,6 +3,8 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {useParams,useRouter} from "next/navigation";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import {useOptimisticStatus} from "@/lib/use-optimistic-status";
+import {useStaffBootstrap} from "../../bootstrap-context";
+import {workspaceFetch} from "@/lib/workspace-fetch";
 import {RefreshCw,Search,Clock3} from "lucide-react";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Order={id:string;orderNumber:string;tableName:string;status:string;itemsSummary:string;itemCount:number;totalAmount:number;createdAt:string};
@@ -19,16 +21,16 @@ const views:Record<string,{title:string;description:string;statuses:string[];per
 };
 async function parse(r:Response){const text=await r.text();let p;try{p=JSON.parse(text);}catch{throw Error("Unexpected server response ("+r.status+")");}if(!r.ok||!p?.success)throw Error(p?.message||"Request failed ("+r.status+")");return p.data;}
 export default function StaffOperations(){
- const {view}=useParams<{view:string}>(),router=useRouter();const config=views[view];
+ const {view}=useParams<{view:string}>(),router=useRouter();const config=views[view];const bootstrap=useStaffBootstrap();
  const [token,setToken]=useState(""),[tenant,setTenant]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branch,setBranch]=useState("");
  const [access,setAccess]=useState<Access>({roles:[],permissions:[]}),[confirmedOrders,setOrders]=useState<Order[]>([]);
  const [search,setSearch]=useState(""),[error,setError]=useState(""),[loading,setLoading]=useState(true);
  useEffect(()=>{if(!config){router.replace("/staff");return;}const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login");return;}try{const membership=JSON.parse(raw).memberships?.[0];if(!membership?.tenantId)throw Error("No restaurant membership");setToken(t);setTenant(membership.tenantId);}catch{router.replace("/login");}},[config,router]);
- useEffect(()=>{if(!token||!tenant)return;let live=true;(async()=>{try{const data=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(data);setBranch(data[0]?.id||"");if(!data.length)setLoading(false);}}catch(e){if(live){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant]);
+ useEffect(()=>{if(!token||!tenant)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenant){setBranches(bootstrap.branches);setBranch(old=>bootstrap.branches.some(b=>b.id===old)?old:bootstrap.branches[0]?.id||"");if(!bootstrap.branches.length)setLoading(false);return;}let live=true;(async()=>{try{const data=await parse(await workspaceFetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(data);setBranch(data[0]?.id||"");if(!data.length)setLoading(false);}}catch(e){if(live){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant,bootstrap]);
  const scope=JSON.stringify([token,tenant,branch]),scopeRef=useRef(scope),version=useRef(0);
  const {rows:orders,pending:busy,run}=useOptimisticStatus(scope,confirmedOrders);
  useEffect(()=>{scopeRef.current=scope;setOrders([]);setAccess({roles:[],permissions:[]});return()=>{scopeRef.current="";version.current++;};},[scope]);
- const load=useCallback(async(resourceId?:string)=>{if(!branch||scopeRef.current!==scope)return;const current=++version.current;try{const headers={Authorization:"Bearer "+token};const [a,o]=await Promise.all([fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers}),fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch+"&live="+(!view.endsWith("history")),{headers,cache:"no-store"})]);const permissions=await parse(a),rows=await parse(o);if(scopeRef.current===scope&&version.current===current){setAccess(permissions);setOrders(rows);if(!resourceId)setError("");}}catch(e){if(scopeRef.current===scope&&version.current===current)setError(e instanceof Error?e.message:"Could not load orders");}finally{if(scopeRef.current===scope&&version.current===current)setLoading(false);}},[branch,tenant,token,scope,view]);
+ const load=useCallback(async(resourceId?:string)=>{if(!branch||scopeRef.current!==scope)return;const current=++version.current;try{const headers={Authorization:"Bearer "+token};const [a,o]=await Promise.all([resourceId?Promise.resolve(null):fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers}),fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch+"&live="+(!view.endsWith("history")),{headers,cache:"no-store"})]);const permissions=a?await parse(a):null,rows=await parse(o);if(scopeRef.current===scope&&version.current===current){if(permissions)setAccess(permissions);setOrders(rows);setError("");}}catch(e){if(scopeRef.current===scope&&version.current===current){setOrders([]);setAccess({roles:[],permissions:[]});setError(e instanceof Error?e.message:"Could not load orders");}}finally{if(scopeRef.current===scope&&version.current===current)setLoading(false);}},[branch,tenant,token,scope,view]);
  useEffect(()=>{if(!branch)return;setLoading(true);void load();},[branch,load]);
  const realtimeStatus=useOrderEvents(token,tenant,branch,load);
  const roles=access.roles.map(r=>r.toUpperCase()),manager=roles.includes("MANAGER")||roles.includes("OWNER");

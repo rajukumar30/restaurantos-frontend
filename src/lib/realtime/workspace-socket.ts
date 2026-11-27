@@ -67,7 +67,7 @@ class WorkspaceSocket {
   if(this.client.connected){this.attach(destination,topic);listener.reconcile();}
   return ()=>{
    const current=this.topics.get(destination);
-   if(current!==topic)return;
+   if(!current||current!==topic)return;
    current.listeners.delete(listener);
    if(!current.listeners.size){try{current.subscription?.unsubscribe();}catch{}this.topics.delete(destination);}
    if(!this.topics.size&&!this.closed){
