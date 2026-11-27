@@ -1,142 +1,62 @@
 "use client";
-
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Building2, LogOut, Pencil, Plus, Search, ShieldCheck, Users } from "lucide-react";
+import {useCallback,useEffect,useMemo,useRef,useState,type FormEvent,type ReactNode} from "react";
+import {ArrowLeft,ChevronLeft,ChevronRight,Eye,EyeOff,Pencil,Plus,RefreshCw,Search,ShieldCheck,Store,Users,X} from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
-type Membership = { tenantId: string; tenantName: string; roles: string };
-type Branch = { id: string; name: string; branchCode: string; address: string; phone?: string };
-type Staff = { userId: string; name: string; email: string; phone?: string; accountStatus: string; roles?: string; branches?: string };
-
-export default function StaffPage() {
- const ownerRoute=usePathname().startsWith("/owner");
-  const router = useRouter();
-  const [token,setToken] = useState("");
-  const [memberships,setMemberships] = useState<Membership[]>([]);
-  const [tenantId,setTenantId] = useState("");
-  const [branches,setBranches] = useState<Branch[]>([]);
-  const [branchId,setBranchId] = useState("");
-  const [staff,setStaff] = useState<Staff[]>([]);
-  const [loading,setLoading] = useState(true);
-  const [error,setError] = useState("");
-  const [search,setSearch] = useState("");
-  const [showForm,setShowForm] = useState(false);
-  const [saving,setSaving] = useState(false);
-  const [editing,setEditing] = useState<Staff|null>(null);
-  const [editForm,setEditForm] = useState({name:"",phone:"",roleKey:"WAITER",accountStatus:"ACTIVE"});
-  const [form,setForm] = useState({name:"",email:"",phone:"",temporaryPassword:"",roleKey:"WAITER"});
-
-  useEffect(() => {
-    const accessToken = localStorage.getItem("restaurantos_access_token") ?? "";
-    const rawUser = localStorage.getItem("restaurantos_user");
-    if(!accessToken || !rawUser){router.replace("/login");return;}
-    try {
-      const user = JSON.parse(rawUser);
-      const available:Membership[] = user.memberships ?? [];
-      if(!available.length){router.replace("/login");return;}
-      setToken(accessToken);setMemberships(available);setTenantId(available[0].tenantId);
-    } catch {router.replace("/login");}
-  },[router]);
-
-  useEffect(() => {
-    if(!token || !tenantId)return;
-    let cancelled=false;
-    async function loadBranches(){
-      setLoading(true);setError("");setStaff([]);setBranches([]);setBranchId("");
-      try{
-        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`}});
-        const payload=await response.json();
-        if(!response.ok || !payload.success)throw new Error(payload.message??"Unable to load branches.");
-        if(!cancelled){
-          const available:Branch[]=payload.data??[];
-          setBranches(available);
-          setBranchId(available[0]?.id??"");
-        }
-      }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load your workspace.");}
-      finally{if(!cancelled)setLoading(false);}
-    }
-    loadBranches();return()=>{cancelled=true;};
-  },[token,tenantId]);
-
-  useEffect(() => {
-    if(!token || !tenantId || !branchId)return;
-    let cancelled=false;
-    async function loadStaff(){
-      setLoading(true);setError("");
-      try{
-        const response=await fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${encodeURIComponent(branchId)}`,{
-          headers:{Authorization:`Bearer ${token}`}
-        });
-        const payload=await response.json();
-        if(!response.ok || !payload.success)throw new Error(payload.message??"Unable to load staff.");
-        if(!cancelled)setStaff(payload.data??[]);
-      }catch(e){if(!cancelled)setError(e instanceof Error?e.message:"Unable to load staff.");}
-      finally{if(!cancelled)setLoading(false);}
-    }
-    loadStaff();return()=>{cancelled=true;};
-  },[token,tenantId,branchId]);
-
-  const filtered=useMemo(()=>staff.filter(person=>[person.name,person.email,person.roles,person.branches].some(v=>v?.toLowerCase().includes(search.toLowerCase()))),[staff,search]);
-
-  async function invite(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();
-    if(!branchId){setError("No branch is available for this account.");return;}
-    setSaving(true);setError("");
-    try{
-      const response=await fetch(`${API}/api/v1/tenants/${tenantId}/staff`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...form,branchId})});
-      const payload=await response.json();
-      if(!response.ok||!payload.success)throw new Error(payload.message??"Could not create staff account.");
-      setShowForm(false);setForm({name:"",email:"",phone:"",temporaryPassword:"",roleKey:"WAITER"});
-      setSaving(false);
-      // Creation has already succeeded; do not block confirmation on a second network request.
-      void fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${branchId}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"})
-        .then(async refreshed=>{if(!refreshed.ok)return;const data=await refreshed.json();if(data.success)setStaff(data.data);})
-        .catch(()=>{});
-    }catch(e){setError(e instanceof Error?e.message:"Unable to create staff account.");}
-    finally{setSaving(false);}
-  }
-
-  async function saveEmployee(event:FormEvent<HTMLFormElement>){
-    event.preventDefault();if(!editing)return;
-    setSaving(true);setError("");
-    try{
-      const response=await fetch(`${API}/api/v1/tenants/${tenantId}/staff/${encodeURIComponent(editing.userId)}`,{method:"PATCH",headers:{"Content-Type":"application/json",Authorization:`Bearer ${token}`},body:JSON.stringify({...editForm,branchId})});
-      const payload=await response.json();if(!response.ok||!payload.success)throw new Error(payload.message??"Employee update is not supported by the server yet.");
-      const refreshed=await fetch(`${API}/api/v1/tenants/${tenantId}/staff?branchId=${encodeURIComponent(branchId)}`,{headers:{Authorization:`Bearer ${token}`}});
-      const data=await refreshed.json();if(refreshed.ok&&data.success)setStaff(data.data);
-      setEditing(null);
-    }catch(e){setError(e instanceof Error?e.message:"Unable to update employee.");}finally{setSaving(false);}
-  }
-  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
-  const current=memberships.find(m=>m.tenantId===tenantId);
-  return <main className="min-h-screen bg-[#f7f4ec]">
-    <header className="flex items-center justify-between border-b border-[#e9e5dc] bg-[#fffefa] px-5 py-4 sm:px-9"><div className="flex items-center gap-3"><div className="brand-mark">r.</div><div><div className="font-bold tracking-tight">restaurant<span className="text-[#E56A42]">os</span></div><div className="text-[9px] uppercase tracking-[.16em] text-[#99998f]">Restaurant workspace</div></div></div><div className="flex items-center gap-2"><Link href={ownerRoute?"/owner/":"/"} className="ghost-button hidden sm:inline-flex items-center gap-2"><ArrowLeft size={14}/> Dashboard</Link><button onClick={logout} className="ghost-button flex items-center gap-2"><LogOut size={14}/> Sign out</button></div></header>
-    <div className="mx-auto max-w-6xl px-5 py-9 sm:px-8 sm:py-12">
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between mb-8"><div><div className="eyebrow">Workspace / People</div><h1 className="text-3xl sm:text-4xl font-bold tracking-[-.055em] mt-2">Your team<span className="text-[#E56A42]">.</span></h1><p className="text-sm text-[#77796f] mt-3">Manage restaurant staff and their access to daily operations.</p></div><button onClick={()=>setShowForm(v=>!v)} className="primary-button inline-flex items-center justify-center gap-2"><Plus size={15}/>{showForm?"Close form":"Add team member"}</button></div>
-      <section className="grid gap-3 sm:grid-cols-3 mb-6"><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Team members</span><Users size={17}/></div><div className="text-3xl font-bold mt-3">{staff.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Active branches</span><Building2 size={17}/></div><div className="text-3xl font-bold mt-3">{branches.length}</div></div><div className="panel p-5"><div className="flex items-center justify-between text-xs text-[#77796f]"><span>Your access</span><ShieldCheck size={17}/></div><div className="text-lg font-bold mt-4">{current?.roles||"Team member"}</div></div></section>
-      <div className="mb-5 grid max-w-2xl gap-4 sm:grid-cols-2">
-        {memberships.length>1&&<label className="block"><span className="text-xs font-semibold">Restaurant workspace</span><select value={tenantId} onChange={e=>setTenantId(e.target.value)} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm">{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select></label>}
-        <label className="block"><span className="text-xs font-semibold">Selected branch</span><select value={branchId} onChange={e=>setBranchId(e.target.value)} disabled={!branches.length} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm disabled:opacity-60">{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-      </div>
-      {editing&&<form onSubmit={saveEmployee} className="panel mb-6 p-5 sm:p-7"><div className="mb-4 flex items-center justify-between"><div><h2 className="font-bold">Edit employee</h2><p className="mt-1 text-xs text-[#77796f]">{editing.email}</p></div><button type="button" onClick={()=>setEditing(null)} className="ghost-button">Cancel</button></div><div className="grid gap-4 sm:grid-cols-2"><Field label="Full name" value={editForm.name} onChange={v=>setEditForm(p=>({...p,name:v}))} placeholder="Full name" required/><Field label="Phone" value={editForm.phone} onChange={v=>setEditForm(p=>({...p,phone:v}))} placeholder="Phone number"/><label className="block"><span className="text-xs font-semibold">Employee role</span><select value={editForm.roleKey} onChange={e=>setEditForm(p=>({...p,roleKey:e.target.value}))} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="MANAGER">Manager</option><option value="KITCHEN">Kitchen</option><option value="CASHIER">Cashier</option><option value="WAITER">Waiter</option><option value="STAFF">Staff</option></select></label><label className="block"><span className="text-xs font-semibold">Account status</span><select value={editForm.accountStatus} onChange={e=>setEditForm(p=>({...p,accountStatus:e.target.value}))} className="mt-2 w-full rounded-xl border p-3 text-sm"><option value="ACTIVE">Active</option><option value="DISABLED">Disabled</option></select></label></div><p className="mt-3 text-xs text-[#77796f]">Changes require owner authorization and server-side tenant validation.</p><button disabled={saving} className="primary-button mt-5 disabled:opacity-50">{saving?"Saving…":"Save employee changes"}</button></form>}
-      {showForm&&<form onSubmit={invite} className="panel p-5 sm:p-7 mb-6"><div className="mb-5"><h2 className="font-bold">Create staff account</h2><p className="text-xs text-[#99998f] mt-1">Give a team member branch access and a role.</p></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Full name" value={form.name} onChange={v=>setForm(p=>({...p,name:v}))} placeholder="Full name" required/>
-        <Field label="Email address" value={form.email} onChange={v=>setForm(p=>({...p,email:v}))} placeholder="staff@example.com" type="email" required/>
-        <Field label="Temporary password (12+ chars)" value={form.temporaryPassword} onChange={v=>setForm(p=>({...p,temporaryPassword:v}))} placeholder="Set a temporary password" type="password" required minLength={12}/>
-        <Field label="Phone (optional)" value={form.phone} onChange={v=>setForm(p=>({...p,phone:v}))} placeholder="+91…"/>
-        <label className="block"><span className="text-xs font-semibold text-[#55584f]">Branch</span><select value={branchId} required onChange={e=>setBranchId(e.target.value)} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm">{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-        <label className="block"><span className="text-xs font-semibold text-[#55584f]">Role</span><select value={form.roleKey} onChange={e=>setForm(p=>({...p,roleKey:e.target.value}))} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm"><option value="MANAGER">Branch manager</option><option value="KITCHEN">Kitchen staff</option><option value="CASHIER">Cashier</option><option value="WAITER">Waiter</option><option value="STAFF">General staff</option></select></label>
-      </div><div className="mt-5 flex justify-end"><button disabled={saving||!branches.length} className="primary-button disabled:opacity-60">{saving?"Creating account…":"Create staff account"}</button></div></form>}
-      {error&&<div role="alert" className="mb-5 rounded-xl bg-[#fbede7] px-4 py-3 text-xs text-[#a7442a]">{error}</div>}
-      <section className="panel p-5 sm:p-7"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-5"><div><h2 className="font-bold">Team directory</h2><p className="text-xs text-[#99998f] mt-1">People with access to this restaurant.</p></div><div className="flex items-center gap-2 rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-3"><Search size={15}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search team" className="w-full sm:w-48 bg-transparent py-2.5 text-xs outline-none"/></div></div>
-        {loading?<p className="py-10 text-center text-sm text-[#99998f]">Loading your team…</p>:filtered.length===0?<div className="py-12 text-center"><div className="mx-auto h-12 w-12 rounded-2xl bg-[#f5eee5] text-[#d56a45] grid place-items-center"><Users size={20}/></div><h3 className="font-bold mt-4">No team members found</h3><p className="text-xs text-[#99998f] mt-2">Add your first staff member to start assigning roles.</p></div>:<div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-xs"><thead><tr className="border-b border-[#eeeae2] text-[10px] uppercase tracking-wider text-[#99998f]"><th className="pb-3 font-semibold">Team member</th><th className="pb-3 font-semibold">Role</th><th className="pb-3 font-semibold">Branch</th><th className="pb-3 font-semibold">Status</th><th className="pb-3 font-semibold">Actions</th></tr></thead><tbody>{filtered.map(p=><tr key={p.userId} className="border-b border-[#f0ede6] last:border-0"><td className="py-4"><div className="font-bold">{p.name}</div><div className="text-[10px] text-[#99998f] mt-1">{p.email}</div></td><td className="py-4">{p.roles||"—"}</td><td className="py-4">{p.branches||"—"}</td><td className="py-4"><span className="rounded-full bg-[#eaf2e9] px-2.5 py-1 text-[10px] font-bold text-[#527a5b]">{p.accountStatus}</span></td><td className="py-4"><button type="button" className="ghost-button inline-flex items-center gap-1" onClick={()=>{setEditing(p);setEditForm({name:p.name,phone:p.phone??"",roleKey:(p.roles??"WAITER").toUpperCase().split(",")[0].trim().replace("ROLE_",""),accountStatus:p.accountStatus??"ACTIVE"});setShowForm(false);}}><Pencil size={13}/>Edit</button></td></tr>)}</tbody></table></div>}
-      </section>
-    </div>
-  </main>;
+import {usePathname,useRouter} from "next/navigation";
+import {filterStaff,staffSummary,editableRole,roleNames,staffStatus,type StaffFilter,type StaffSort} from "@/lib/staff-directory";
+const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
+type Membership={tenantId:string;tenantName:string;roles:string};
+type Branch={id:string;name:string;branchCode:string};
+type Staff={userId:string;name:string;email:string;phone?:string|null;accountStatus:string;roles?:string|null;branches?:string|null};
+const roles=[{key:"MANAGER",name:"Branch manager"},{key:"KITCHEN",name:"Kitchen staff"},{key:"CASHIER",name:"Cashier"},{key:"WAITER",name:"Waiter"},{key:"STAFF",name:"General staff"}];
+const empty={name:"",email:"",phone:"",temporaryPassword:"",roleKey:"WAITER",accountStatus:"ACTIVE"};
+const button="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-[#dfe3d9] bg-white px-3 py-2 text-xs font-semibold hover:bg-[#f0f3ec] disabled:opacity-50";
+const primary="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#c75935] px-3.5 py-2 text-sm font-bold text-white hover:bg-[#b34c2d] disabled:opacity-50";
+const field="mt-1.5 w-full rounded-xl border border-[#dfe3d9] bg-white px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#a8b9ab]";
+function Drawer({title,subtitle,children,footer,onClose,busy=false}:{title:string;subtitle?:string;children:ReactNode;footer?:ReactNode;onClose:()=>void;busy?:boolean}){
+ const ref=useRef<HTMLDialogElement>(null);
+ useEffect(()=>{const dialog=ref.current;if(!dialog)return;const old=document.body.style.overflow;document.body.style.overflow="hidden";dialog.showModal();return()=>{dialog.close();document.body.style.overflow=old;};},[]);
+ return <dialog ref={ref} aria-label={title} onCancel={e=>{e.preventDefault();if(!busy)onClose();}} onClick={e=>{if(e.target===e.currentTarget&&!busy)onClose();}} className="fixed inset-x-0 bottom-0 top-auto m-0 max-h-[92dvh] w-full max-w-none overflow-hidden rounded-t-2xl bg-[#fffefa] p-0 text-[#202920] shadow-xl backdrop:bg-black/45 sm:inset-y-0 sm:left-auto sm:right-0 sm:h-full sm:max-h-none sm:max-w-md sm:rounded-none"><section className="flex max-h-[92dvh] flex-col sm:h-full sm:max-h-none"><header className="flex shrink-0 items-start justify-between gap-3 border-b p-4 sm:p-5"><div><h2 className="text-lg font-extrabold">{title}</h2>{subtitle&&<p className="mt-1 text-xs text-[#657168]">{subtitle}</p>}</div><button type="button" aria-label="Close" className={button} disabled={busy} onClick={onClose}><X size={18}/></button></header><div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>{footer&&<footer className="shrink-0 border-t bg-white p-4 pb-[max(16px,env(safe-area-inset-bottom))]">{footer}</footer>}</section></dialog>;
 }
 
-function Field({label,value,onChange,placeholder,type="text",required=false,minLength}: {label:string;value:string;onChange:(v:string)=>void;placeholder:string;type?:string;required?:boolean;minLength?:number}) {
- return <label className="block"><span className="text-xs font-semibold text-[#55584f]">{label}{required?" *":""}</span><input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} required={required} minLength={minLength} className="mt-2 w-full rounded-xl border border-[#e4dfd4] bg-[#fffefa] px-4 py-3 text-sm outline-none focus:border-[#d68b6d]"/></label>;
+export default function StaffPage(){
+ const pathname=usePathname(),router=useRouter(),embedded=pathname.startsWith("/owner")||pathname.startsWith("/staff");
+ const [token,setToken]=useState(""),[memberships,setMemberships]=useState<Membership[]>([]),[tenantId,setTenantId]=useState(""),[branches,setBranches]=useState<Branch[]>([]),[branchId,setBranchId]=useState("");
+ const [staff,setStaff]=useState<Staff[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[notice,setNotice]=useState(""),[reload,setReload]=useState(0),[branchRetry,setBranchRetry]=useState(0);
+ const [search,setSearch]=useState(""),[status,setStatus]=useState<StaffFilter>("all"),[role,setRole]=useState("all"),[sort,setSort]=useState<StaffSort>("name"),[page,setPage]=useState(1);
+ const [editor,setEditor]=useState<{item?:Staff}|null>(null),[draft,setDraft]=useState(empty),[formError,setFormError]=useState(""),[saving,setSaving]=useState(false),[showPassword,setShowPassword]=useState(false);
+ const lock=useRef(false);
+ useEffect(()=>{const access=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!access||!raw){router.replace("/login");return;}try{const list:Membership[]=JSON.parse(raw).memberships??[];if(!Array.isArray(list)||!list.length){router.replace("/login");return;}setToken(access);setMemberships(list);setTenantId(list[0].tenantId);}catch{router.replace("/login");}},[router]);
+ const request=useCallback(async(path:string,options:RequestInit={})=>{const response=await fetch(API+"/api/v1/tenants/"+encodeURIComponent(tenantId)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});if(response.status===401){router.replace("/login");throw Error("Session expired. Sign in again.");}const payload=await response.json().catch(()=>null);if(!response.ok||!payload?.success)throw Error(payload?.detail||payload?.message||"Request failed ("+response.status+").");return payload.data;},[tenantId,token,router]);
+ useEffect(()=>{if(!token||!tenantId)return;const abort=new AbortController();setLoading(true);setError("");setBranches([]);setBranchId("");setStaff([]);request("/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){if(!Array.isArray(rows))throw Error("Invalid branch response.");setBranches(rows);setBranchId(rows[0]?.id??"");if(!rows.length)setLoading(false);}}).catch(e=>{if(!abort.signal.aborted){setError(e.message||"Unable to load branches.");setLoading(false);}});return()=>abort.abort();},[token,tenantId,request,branchRetry]);
+ useEffect(()=>{if(!token||!tenantId||!branchId)return;const abort=new AbortController();setLoading(true);setError("");request("/staff?branchId="+encodeURIComponent(branchId),{signal:abort.signal}).then((rows:Staff[])=>{if(!abort.signal.aborted){if(!Array.isArray(rows))throw Error("Invalid staff response.");setStaff(rows);}}).catch(e=>{if(!abort.signal.aborted)setError(e.message||"Unable to load team.");}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});return()=>abort.abort();},[token,tenantId,branchId,request,reload]);
+ const membership=memberships.find(m=>m.tenantId===tenantId),owner=roleNames(membership?.roles).includes("OWNER");
+ const branchName=branches.find(b=>b.id===branchId)?.name??"Select branch";
+ const summary=useMemo(()=>staffSummary(staff),[staff]);
+ const filtered=useMemo(()=>filterStaff(staff,search,status,role,sort),[staff,search,status,role,sort]);
+ const pageSize=20,pages=Math.max(1,Math.ceil(filtered.length/pageSize)),currentPage=Math.min(page,pages),visible=filtered.slice((currentPage-1)*pageSize,currentPage*pageSize);
+ const disabled=loading||saving||!branchId;
+ function clearFilters(){setSearch("");setStatus("all");setRole("all");setSort("name");setPage(1);}
+ function changeScope(value:string,restaurant=false){if(saving||loading)return;setEditor(null);setDraft(empty);setStaff([]);setError("");setNotice("");clearFilters();setLoading(true);if(restaurant){setBranchId("");setTenantId(value);}else setBranchId(value);}
+ function closeEditor(){if(!saving){setEditor(null);setDraft(empty);setFormError("");setShowPassword(false);}}
+ function openEditor(item?:Staff){if(disabled)return;const key=item?editableRole(item.roles):"WAITER";if(item&&(!owner||!key||!["ACTIVE","INACTIVE"].includes(item.accountStatus)))return;setDraft(item?{name:item.name,email:item.email,phone:item.phone??"",temporaryPassword:"",roleKey:key??"WAITER",accountStatus:item.accountStatus}:empty);setFormError("");setShowPassword(false);setEditor({item});}
+ async function save(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!editor||lock.current||!branchId)return;const item=editor.item;const values={name:draft.name.trim(),phone:draft.phone.trim()||null,branchId,roleKey:draft.roleKey};if(!values.name){setFormError("Enter a full name.");return;}if(item&&draft.accountStatus==="INACTIVE"&&item.accountStatus==="ACTIVE"&&!window.confirm("Deactivate "+item.name+"? This account will lose restaurant access."))return;
+ lock.current=true;setSaving(true);setFormError("");setNotice("");try{const result=await request("/staff"+(item?"/"+encodeURIComponent(item.userId):""),{method:item?"PATCH":"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(item?{...values,accountStatus:draft.accountStatus}:{...values,email:draft.email.trim(),temporaryPassword:draft.temporaryPassword})});if(item)setStaff(old=>old.map(p=>p.userId===item.userId?result:p));else if(result?.userId)setStaff(old=>[...old,{userId:result.userId,name:values.name,email:draft.email.trim().toLowerCase(),phone:values.phone,accountStatus:result.status,roles:roles.find(r=>r.key===values.roleKey)?.name??values.roleKey,branches:branchName}]);setEditor(null);setDraft(empty);setShowPassword(false);setNotice(item?"Team member updated.":"Staff account created.");if(!item)clearFilters();setReload(n=>n+1);}catch(e){setFormError(e instanceof Error?e.message:"Unable to save account.");}finally{lock.current=false;setSaving(false);}}
+ return <main className="min-h-screen bg-[#f5f6f1] text-[#202920]">
+ {!embedded&&<header className="flex items-center gap-3 border-b bg-white px-4 py-3"><Link href="/" className={button}><ArrowLeft size={16}/> Dashboard</Link><span className="text-sm font-bold">Krlio</span></header>}
+ <div className="mx-auto max-w-[1500px] px-3 py-4 sm:px-6">
+ <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-[#718073]">People</p><h1 className="text-2xl font-extrabold tracking-tight">Team &amp; access</h1></div><button className={primary} disabled={disabled} onClick={()=>openEditor()}><Plus size={17}/> Add member</button></div>
+ <div className="mt-3 flex flex-wrap items-center gap-2">{memberships.length>1&&<select aria-label="Restaurant" value={tenantId} disabled={saving||loading} onChange={e=>changeScope(e.target.value,true)} className={button+" max-w-full"}>{memberships.map(m=><option key={m.tenantId} value={m.tenantId}>{m.tenantName}</option>)}</select>}<label className="flex min-w-0 items-center gap-2 rounded-xl border bg-white px-3 py-2 text-xs font-semibold"><Store size={16}/><select aria-label="Branch" value={branchId} disabled={saving||loading} onChange={e=>changeScope(e.target.value)} className="max-w-[220px] bg-transparent outline-none">{!branches.length&&<option value="">Select branch</option>}{branches.map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label><button className={button+" ml-auto"} aria-label="Refresh team" disabled={saving||loading} onClick={()=>branchId?setReload(n=>n+1):setBranchRetry(n=>n+1)}><RefreshCw size={15}/><span className="hidden sm:inline">Refresh</span></button></div>
+ <div className="mt-3 flex items-center gap-1.5 text-xs text-[#657168]"><ShieldCheck size={14}/><span>Your access: {membership?.roles||"Team member"}</span></div>
+ <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-3">{([{name:"Members",value:summary.total,key:"all"},{name:"Active",value:summary.active,key:"active"},{name:"Inactive",value:summary.inactive,key:"inactive"},{name:"Other",value:summary.other,key:"other"}] as const).map(s=><button key={s.name} onClick={()=>{setStatus(s.key);setPage(1);}} aria-pressed={status===s.key} className={"rounded-xl border bg-white px-2 py-2.5 text-left sm:p-3 "+(status===s.key?"border-[#a2b4a0]":"border-[#e1e5da]")}><p className="text-[10px] font-medium text-[#657168] sm:text-xs">{s.name}</p><p className={"mt-1 text-xl font-extrabold tabular-nums "+(s.key==="active"?"text-[#46734e]":"")}>{loading?"—":s.value}</p></button>)}</div>
+ <section className="mt-4 min-w-0">
+ <div className="sticky top-[76px] z-10 rounded-xl border border-[#e1e5da] bg-[#fffefa] p-2.5 shadow-sm"><div className="flex gap-2"><label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border bg-white px-3"><Search size={17} className="shrink-0 text-[#718073]"/><input aria-label="Search team" value={search} maxLength={150} onChange={e=>{setSearch(e.target.value);setPage(1);}} placeholder="Search name, email or phone" className="w-full min-w-0 bg-transparent py-2.5 text-sm outline-none"/>{search&&<button aria-label="Clear search" onClick={()=>{setSearch("");setPage(1);}}><X size={15}/></button>}</label><select aria-label="Sort team" className={button+" max-w-[110px]"} value={sort} onChange={e=>{setSort(e.target.value as StaffSort);setPage(1);}}><option value="name">A–Z</option><option value="name-desc">Z–A</option><option value="role">Role</option></select></div><div className="mt-2 flex flex-wrap items-center gap-1.5">{([{key:"all",name:"All"},{key:"active",name:"Active"},{key:"inactive",name:"Inactive"},{key:"other",name:"Other"}] as const).map(s=><button key={s.key} aria-pressed={status===s.key} onClick={()=>{setStatus(s.key);setPage(1);}} className={"rounded-full px-3 py-1.5 text-xs font-semibold "+(status===s.key?"bg-[#213d32] text-white":"bg-[#edf0e9] text-[#455348]")}>{s.name}</button>)}<select aria-label="Filter by role" className="ml-auto max-w-full rounded-lg border bg-white px-2 py-1.5 text-xs font-semibold" value={role} onChange={e=>{setRole(e.target.value);setPage(1);}}><option value="all">All roles</option><option value="OWNER">Owner</option>{roles.map(r=><option key={r.key} value={r.key}>{r.name}</option>)}<option value="OTHER">Other roles</option></select></div></div>
+ {(error||notice)&&<p role={error?"alert":"status"} className={"mt-3 rounded-lg px-3 py-2 text-xs "+(error?"bg-red-50 text-red-800":"bg-green-50 text-green-800")}>{error||notice}</p>}
+ <div className="my-3 flex items-center justify-between"><p className="text-xs font-medium text-[#657168]">{loading?"Loading team…":filtered.length+" members found"}</p>{(search||status!=="all"||role!=="all"||sort!=="name")&&<button className="text-xs font-semibold text-[#a34c2e]" onClick={clearFilters}>Reset filters</button>}</div>
+ {loading?<div role="status" className="rounded-xl border bg-white p-8 text-center text-sm text-[#657168]">Loading team…</div>:!visible.length?<div className="rounded-xl border bg-white p-8 text-center"><Users size={26} className="mx-auto text-[#718073]"/><h2 className="mt-3 text-sm font-bold">{error?"Unable to load team":staff.length?"No matching members":"No team members yet"}</h2><button className={button+" mt-3"} disabled={!error&&!staff.length&&!branchId} onClick={error?()=>branchId?setReload(n=>n+1):setBranchRetry(n=>n+1):staff.length?clearFilters:()=>openEditor()}>{error?"Retry":staff.length?"Clear filters":"Add member"}</button></div>:<div className="overflow-hidden rounded-xl border border-[#e1e5da] bg-white"><div className="hidden grid-cols-[minmax(160px,1.6fr)_minmax(100px,1fr)_minmax(100px,1fr)_90px_72px] gap-3 bg-[#edf0e9] px-4 py-3 text-[11px] font-semibold text-[#657168] lg:grid"><span>Team member</span><span>Role</span><span>Branch</span><span>Status</span><span>Actions</span></div>{visible.map(p=>{const state=staffStatus(p.accountStatus),canEdit=owner&&!!editableRole(p.roles)&&["ACTIVE","INACTIVE"].includes(p.accountStatus);return <article key={p.userId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 border-b border-[#e9ece5] px-3 py-3 last:border-0 lg:grid-cols-[minmax(160px,1.6fr)_minmax(100px,1fr)_minmax(100px,1fr)_90px_72px] lg:gap-3 lg:px-4"><div className="flex min-w-0 items-center gap-2"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#e4ede2] text-sm font-bold text-[#426a4b]">{p.name?.trim().charAt(0).toUpperCase()||"?"}</div><div className="min-w-0"><p className="truncate text-sm font-bold" title={p.name}>{p.name}</p><p className="truncate text-[11px] text-[#657168]" title={p.email}>{p.email}</p><p className="mt-1 truncate text-[11px] font-medium lg:hidden">{p.roles||"Unassigned"} · {p.branches||branchName}</p></div></div><span className="hidden text-xs lg:block">{p.roles||"Unassigned"}</span><span className="hidden text-xs text-[#657168] lg:block">{p.branches||"—"}</span><div className="flex flex-col items-end gap-1 lg:contents"><span className={"whitespace-nowrap rounded-full px-2 py-1 text-[10px] font-bold lg:justify-self-start "+(state==="active"?"bg-[#eaf2e9] text-[#426a4b]":state==="inactive"?"bg-[#f4eae4] text-[#a34c2e]":"bg-[#f8f0dc] text-[#84641f]")}>{state==="active"?"Active":state==="inactive"?"Inactive":p.accountStatus||"Unknown"}</span>{canEdit?<button className={button+" !min-h-8 !px-2 !py-1"} aria-label={"Edit "+p.name} disabled={disabled} onClick={()=>openEditor(p)}><Pencil size={14}/> Edit</button>:<span className="text-[10px] text-[#657168] lg:self-center">Protected</span>}</div></article>;})}</div>}
+ {!loading&&filtered.length>0&&<div className="mt-3 flex items-center justify-between rounded-xl border bg-white p-3 text-xs"><span>{(currentPage-1)*pageSize+1}–{Math.min(currentPage*pageSize,filtered.length)} of {filtered.length}</span><div className="flex items-center gap-2"><button className={button} aria-label="Previous page" disabled={currentPage<=1} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={16}/></button><span>{currentPage} / {pages}</span><button className={button} aria-label="Next page" disabled={currentPage>=pages} onClick={()=>setPage(currentPage+1)}><ChevronRight size={16}/></button></div></div>}
+ <p className="mt-4 text-xs text-[#657168]">Roles control access to restaurant features. Protected and shared accounts cannot be modified through this directory.</p>
+ </section></div>
+ {editor&&<Drawer title={editor.item?"Edit team member":"Add team member"} subtitle={branchName} busy={saving} onClose={closeEditor} footer={<div className="flex gap-2"><button className={button+" flex-1"} disabled={saving} onClick={closeEditor}>Cancel</button><button form="staff-editor" type="submit" disabled={saving} className={primary+" flex-[2]"}>{saving?"Saving…":editor.item?"Save changes":"Create account"}</button></div>}><form id="staff-editor" onSubmit={save} className="space-y-4"><h3 className="text-sm font-bold">Personal details</h3><label className="block text-xs font-semibold">Full name *<input required maxLength={150} disabled={saving} value={draft.name} className={field} onChange={e=>setDraft(s=>({...s,name:e.target.value}))} placeholder="Full name"/></label><label className="block text-xs font-semibold">Email address *<input required type="email" autoComplete="off" maxLength={255} readOnly={!!editor.item} disabled={saving} value={draft.email} className={field} onChange={e=>setDraft(s=>({...s,email:e.target.value}))} placeholder="staff@example.com"/></label><label className="block text-xs font-semibold">Phone (optional)<input type="tel" maxLength={20} disabled={saving} value={draft.phone} className={field} onChange={e=>setDraft(s=>({...s,phone:e.target.value}))} placeholder="+91…"/></label>{!editor.item&&<div><label htmlFor="staff-password" className="text-xs font-semibold">Temporary password *</label><div className="relative"><input id="staff-password" required type={showPassword?"text":"password"} autoComplete="new-password" minLength={12} maxLength={100} disabled={saving} value={draft.temporaryPassword} className={field+" pr-12"} onChange={e=>setDraft(s=>({...s,temporaryPassword:e.target.value}))}/><button type="button" className="absolute right-3 top-4" aria-label={showPassword?"Hide password":"Show password"} onClick={()=>setShowPassword(v=>!v)}>{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div><p className="mt-1 text-[11px] text-[#657168]">At least 12 characters. Share securely with the employee.</p></div>}<h3 className="border-t pt-4 text-sm font-bold">Role &amp; access</h3><label className="block text-xs font-semibold">Branch<input readOnly className={field+" bg-[#edf0e9]"} value={branchName}/></label><label className="block text-xs font-semibold">Role *<select value={draft.roleKey} disabled={saving} className={field} onChange={e=>setDraft(s=>({...s,roleKey:e.target.value}))}>{roles.filter(r=>owner||r.key!=="MANAGER").map(r=><option key={r.key} value={r.key}>{r.name}</option>)}</select></label>{editor.item&&<label className="block text-xs font-semibold">Account status<select className={field} disabled={saving} value={draft.accountStatus} onChange={e=>setDraft(s=>({...s,accountStatus:e.target.value}))}><option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option></select></label>}<p className="rounded-lg bg-[#edf0e9] p-3 text-xs text-[#455348]">{editor.item?"Changes affect this staff account. Email and branch assignment remain unchanged.":"The account is created for the selected branch with the chosen role."}</p>{formError&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-xs text-red-800">{formError}</p>}</form></Drawer>}
+ </main>;
 }

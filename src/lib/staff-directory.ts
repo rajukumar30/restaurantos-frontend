@@ -1,0 +1,9 @@
+export type StaffFilter="all"|"active"|"inactive"|"other";
+export type StaffSort="name"|"name-desc"|"role";
+type Row={name:string;email:string;phone?:string|null;accountStatus:string;roles?:string|null;branches?:string|null};
+const aliases:Record<string,string>={"OWNER":"OWNER","RESTAURANT_OWNER":"OWNER","MANAGER":"MANAGER","BRANCH_MANAGER":"MANAGER","KITCHEN":"KITCHEN","KITCHEN_STAFF":"KITCHEN","CASHIER":"CASHIER","WAITER":"WAITER","WAITER_STAFF":"WAITER","STAFF":"STAFF","GENERAL_STAFF":"STAFF"};
+export function roleNames(value?:string|null){return String(value??"").split(",").map(v=>v.trim().toUpperCase().replace(/^ROLE_/,"").replace(/\s+/g,"_")).filter(Boolean).map(v=>aliases[v]??"OTHER");}
+export function editableRole(value?:string|null){const keys=roleNames(value);return keys.length===1&&["MANAGER","KITCHEN","CASHIER","WAITER","STAFF"].includes(keys[0])?keys[0]:null;}
+export function staffStatus(value:string):Exclude<StaffFilter,"all">{return value==="ACTIVE"?"active":value==="INACTIVE"||value==="DISABLED"?"inactive":"other";}
+export function staffSummary(rows:Row[]){return {total:rows.length,active:rows.filter(p=>staffStatus(p.accountStatus)==="active").length,inactive:rows.filter(p=>staffStatus(p.accountStatus)==="inactive").length,other:rows.filter(p=>staffStatus(p.accountStatus)==="other").length};}
+export function filterStaff<T extends Row>(rows:T[],search:string,status:StaffFilter,role:string,sort:StaffSort):T[]{const q=search.trim().toLowerCase();return rows.filter(p=>(!q||[p.name,p.email,p.phone,p.roles,p.branches].some(v=>String(v??"").toLowerCase().includes(q)))&&(status==="all"||staffStatus(p.accountStatus)===status)&&(role==="all"||roleNames(p.roles).includes(role))).sort((a,b)=>(sort==="role"?String(a.roles??"").localeCompare(String(b.roles??"")):0)||(sort==="name-desc"?b.name.localeCompare(a.name):a.name.localeCompare(b.name)));}
