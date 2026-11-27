@@ -1,4 +1,6 @@
 "use client";
+import {workspaceFetch,readWorkspacePreview} from "@/lib/workspace-fetch";
+
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
@@ -6,7 +8,7 @@ import { useRouter } from "next/navigation";
 import {useOrderEvents} from "@/lib/realtime/use-order-events";
 import { Activity, ArrowRight, Bell, CalendarDays, ChefHat, ChevronDown, ClipboardList, Clock3, LayoutDashboard, LogOut, Menu as MenuIcon, Package, RefreshCw, Settings2, Smartphone, Sparkles, TrendingUp, Users, UtensilsCrossed, Wallet, X } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://restaurantos-backend-kz2r.onrender.com";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? "https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
 type Membership = {tenantId:string;tenantName:string};
 type Branch = {id:string;name:string};
 type Dashboard = {
@@ -66,7 +68,7 @@ export default function Home(){
   if(!token||!tenantId)return;
   const controller=new AbortController();
   setBranchLoading(true);setError("");setBranches([]);setBranchId("");setData(null);setLoading(true);
-  fetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`},signal:controller.signal})
+  workspaceFetch(`${API}/api/v1/tenants/${tenantId}/branches`,{headers:{Authorization:`Bearer ${token}`},signal:controller.signal})
    .then(async r=>{const raw=await r.text();let p: {success?:boolean;message?:string;data?:Branch[]};try{p=raw?JSON.parse(raw):{};}catch{throw new Error("Branch service returned an invalid response. Please retry.");}if(!r.ok||!p.success){if(r.status===401){redirectToLogin();throw new Error("Session expired. Redirecting to login…");}if(r.status===403)throw new Error("You do not have permission to view this restaurant.");throw new Error(p.message??(r.status===503||r.status===502||r.status===504?"Server is waking up or temporarily unavailable. Please retry.":"Cannot load branches (HTTP "+r.status+")"));}if(!Array.isArray(p.data))throw new Error("Branch data is unavailable. Please retry.");return p.data;})
    .then(list=>{if(!controller.signal.aborted){setBranches(list);setBranchId(list[0]?.id??"");if(!list.length)setLoading(false);}})
    .catch(e=>{if(!controller.signal.aborted){setError(e instanceof Error?e.message:"Cannot load branches");setLoading(false);}})
@@ -78,9 +80,9 @@ export default function Home(){
   if(!token||!tenantId||!branchId)return;
   setRefreshing(true);
   try{
-   const r=await fetch(`${API}/api/v1/tenants/${tenantId}/dashboard?branchId=${encodeURIComponent(branchId)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store",signal});
+   const r=await workspaceFetch(`${API}/api/v1/tenants/${tenantId}/dashboard?branchId=${encodeURIComponent(branchId)}`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store",signal});
    if(r.status===401){redirectToLogin();return;}
-   if(r.status===403)throw new Error("You do not have permission to view this dashboard.");
+   if(r.status===403){if(!signal?.aborted)setData(null);throw new Error("You do not have permission to view this dashboard.");}
    const raw=await r.text();let p;
    try{p=JSON.parse(raw);}catch{throw new Error("Dashboard server returned an invalid response. Please retry.");}
    if(!r.ok||!p.success)throw new Error(p.message??"Cannot load dashboard");
@@ -92,10 +94,11 @@ export default function Home(){
  useEffect(()=>{
   if(!branchId)return;
   const controller=new AbortController();
-  setData(null);setLoading(true);
+  const cached=readWorkspacePreview<Dashboard>(`${API}/api/v1/tenants/${tenantId}/dashboard?branchId=${encodeURIComponent(branchId)}`,token);
+  setData(cached?.data??null);setUpdatedAt(cached?new Date(cached.at):null);setLoading(true);
   refresh(controller.signal);
   return()=>{controller.abort();};
- },[branchId,refresh]);
+ },[branchId,refresh,tenantId,token]);
  const realtime=useOrderEvents(token,tenantId,branchId,()=>{void refresh();});
 
  function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}

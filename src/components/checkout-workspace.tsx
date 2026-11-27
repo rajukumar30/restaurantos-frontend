@@ -1,4 +1,6 @@
 "use client";
+import {workspaceFetch} from "@/lib/workspace-fetch";
+
 import {useCallback,useEffect,useRef,useState} from "react";
 import {usePathname,useRouter} from "next/navigation";
 import {Search,RefreshCw,ReceiptText,ChevronLeft,ChevronRight,X,Settings,Wallet} from "lucide-react";
@@ -17,7 +19,7 @@ export default function CheckoutWorkspace(){
  const [canResolve,setCanResolve]=useState(false),[resolution,setResolution]=useState("");
  const [settings,setSettings]=useState(false),[merchant,setMerchant]=useState<Merchant>({upiId:null,merchantName:null});const lock=useRef(false),listSeq=useRef(0),detailSeq=useRef(0),detailId=useRef("");detailId.current=selected;
  useEffect(()=>{try{const t=localStorage.getItem("restaurantos_access_token"),m=JSON.parse(localStorage.getItem("restaurantos_user")||"{}").memberships?.[0];if(!t||!m?.tenantId)throw Error();setToken(t);setTenant(m.tenantId);setCanResolve(/OWNER|MANAGER/i.test(JSON.stringify(m.roles??"")));}catch{router.replace("/login");}},[router]);
- const req=useCallback(async(path:string,options:RequestInit={})=>readCheckout(await fetch(API+"/api/v1/tenants/"+tenant+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}})),[tenant,token]);
+ const req=useCallback(async(path:string,options:RequestInit={})=>readCheckout(await workspaceFetch(API+"/api/v1/tenants/"+tenant+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}})),[tenant,token]);
  useEffect(()=>{if(!token||!tenant)return;const abort=new AbortController();req(owner?"/branches":"/staff-operations/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){setBranches(rows);setBranch(rows[0]?.id||"");if(!rows.length)setLoading(false);}}).catch(e=>{if(!abort.signal.aborted){setError(e instanceof Error?e.message:"Unable to load bills");setLoading(false);}});return()=>abort.abort();},[token,tenant,req,owner]);
  useEffect(()=>{const t=setTimeout(()=>{setQuery(search.trim());setPage(1);},250);return()=>clearTimeout(t);},[search]);
  const load=useCallback(async()=>{if(!branch){setLoading(false);return;}const id=++listSeq.current;try{const p=await req("/checkout?"+new URLSearchParams({branchId:branch,filter,search:query,page:String(page),size:"20"}));if(id===listSeq.current){setData(p);setError("");}}catch(e){if(id===listSeq.current)setError(e instanceof Error?e.message:"Unable to load bills");}finally{if(id===listSeq.current)setLoading(false);}},[req,branch,filter,query,page]);

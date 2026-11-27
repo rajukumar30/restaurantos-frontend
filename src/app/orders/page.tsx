@@ -1,4 +1,6 @@
 "use client";
+import {workspaceFetch} from "@/lib/workspace-fetch";
+
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {ArrowLeft,CalendarDays,ChefHat,ChevronLeft,ChevronRight,Clock3,RefreshCw,Search,Store,X} from "lucide-react";
 import Link from "next/link";
@@ -29,7 +31,7 @@ export default function OrdersPage(){
  const scopeRef=useRef(scope);scopeRef.current=scope;
  const snapScope=useRef("");
  useEffect(()=>{const access=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!access||!raw){router.replace("/login");return;}try{const list:Membership[]=JSON.parse(raw).memberships??[];if(!list.length){router.replace("/login");return;}setToken(access);setMemberships(list);setTenant(list[0].tenantId);}catch{router.replace("/login");}},[router]);
- const request=useCallback(async(path:string,options:RequestInit={})=>{const r=await fetch(API+"/api/v1/tenants/"+encodeURIComponent(tenant)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});if(r.status===401){router.replace("/login");throw Error("Session expired. Sign in again.");}const p=await r.json();if(!r.ok||!p.success)throw Error(p.detail||p.message||"Unable to load orders.");return p.data;},[tenant,token,router]);
+ const request=useCallback(async(path:string,options:RequestInit={})=>{const r=await workspaceFetch(API+"/api/v1/tenants/"+encodeURIComponent(tenant)+path,{...options,cache:"no-store",headers:{Authorization:"Bearer "+token,...options.headers}});if(r.status===401){router.replace("/login");throw Error("Session expired. Sign in again.");}const p=await r.json();if(!r.ok||!p.success)throw Error(p.detail||p.message||"Unable to load orders.");return p.data;},[tenant,token,router]);
  useEffect(()=>{if(!tenant||!token)return;const abort=new AbortController();setLoading(true);setBranches([]);setBranch("");setData(null);setError("");request(embedded&&pathname.startsWith("/staff")?"/staff-operations/branches":"/branches",{signal:abort.signal}).then((rows:Branch[])=>{if(!abort.signal.aborted){setBranches(rows);setBranch(rows[0]?.id||"");if(!rows.length)setLoading(false);}}).catch(e=>{if(!abort.signal.aborted){setError(e.message);setLoading(false);}});return()=>abort.abort();},[tenant,token,request,embedded,pathname,retryBranches]);
  useEffect(()=>{const timer=setTimeout(()=>{setQuery(search.trim());setPage(1);},250);return()=>clearTimeout(timer);},[search]);
  const load=useCallback(async(showLoader=false):Promise<void>=>{

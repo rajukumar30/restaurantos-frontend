@@ -1,4 +1,6 @@
 "use client";
+import {workspaceFetch} from "@/lib/workspace-fetch";
+
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import Link from "next/link";
 import {useStaffBootstrap} from "../bootstrap-context";
@@ -20,7 +22,7 @@ export default function KitchenDisplay(){
  const [serviceMode,setServiceMode]=useState("WAITER_CONFIRMED");const [confirmedOrders,setOrders]=useState<Order[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[now,setNow]=useState(Date.now()),[selected,setSelected]=useState<Order|null>(null);
  useEffect(()=>{const interval=setInterval(()=>setNow(Date.now()),15000);return()=>clearInterval(interval);},[]);
  useEffect(()=>{const t=localStorage.getItem("restaurantos_access_token"),raw=localStorage.getItem("restaurantos_user");if(!t||!raw){router.replace("/login");return;}try{const membership=JSON.parse(raw).memberships?.[0];if(!membership?.tenantId)throw Error("No restaurant membership");setToken(t);setTenant(membership.tenantId);}catch{router.replace("/login");}},[router]);
- useEffect(()=>{if(!token||!tenant)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenant){setBranches(bootstrap.branches);setBranch(bootstrap.branches[0]?.id||"");setAccess(bootstrap.access);return;}let live=true;(async()=>{try{const b=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranch(b[0]?.id||"");if(!b.length){setError("No active branch assigned.");setLoading(false);}}}catch(e){if(live){setError(e instanceof Error?e.message:"Unable to load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant,bootstrap]);
+ useEffect(()=>{if(!token||!tenant)return;if(bootstrap?.token===token&&bootstrap.tenantId===tenant){setBranches(bootstrap.branches);setBranch(bootstrap.branches[0]?.id||"");setAccess(bootstrap.access);return;}let live=true;(async()=>{try{const b=await parse(await workspaceFetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/branches",{headers:{Authorization:"Bearer "+token}}));if(live){setBranches(b);setBranch(b[0]?.id||"");if(!b.length){setError("No active branch assigned.");setLoading(false);}}}catch(e){if(live){setError(e instanceof Error?e.message:"Unable to load branches");setLoading(false);}}})();return()=>{live=false;};},[token,tenant,bootstrap]);
  const scope=JSON.stringify([token,tenant,branch]);
  const scopeRef=useRef(scope),orderVersion=useRef(0),metadataVersion=useRef(0);
  const reusedAccess=useRef(false);
@@ -33,8 +35,8 @@ export default function KitchenDisplay(){
   const initialAccess=!reusedAccess.current&&bootstrap?.token===token&&bootstrap.tenantId===tenant&&bootstrap.branches[0]?.id===branch?bootstrap.access:null;
   if(!resourceId&&initialAccess)reusedAccess.current=true;
   const metaVersion=resourceId?metadataVersion.current:++metadataVersion.current;
-  const ordersRequest=(async()=>{const tickets:Order[]=await parse(await fetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch+"&live=true",{headers,cache:"no-store"}));if(scopeRef.current===scope&&orderVersion.current===version){setOrders(tickets);}})();
-  const metadataRequest=resourceId?Promise.resolve():(async()=>{const [a,m]=await Promise.all([initialAccess?Promise.resolve(null):fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=initialAccess??await parse(a!),mode=(await parse(m)).mode;if(scopeRef.current===scope&&metadataVersion.current===metaVersion){setAccess(permission);setServiceMode(mode);}})();
+  const ordersRequest=(async()=>{const tickets:Order[]=await parse(await workspaceFetch(API+"/api/v1/tenants/"+tenant+"/orders?branchId="+branch+"&live=true",{headers,cache:"no-store"}));if(scopeRef.current===scope&&orderVersion.current===version){setOrders(tickets);}})();
+  const metadataRequest=resourceId?Promise.resolve():(async()=>{const [a,m]=await Promise.all([initialAccess?Promise.resolve(null):workspaceFetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/access?branchId="+branch,{headers,cache:"no-store"}),workspaceFetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/service-mode?branchId="+branch,{headers,cache:"no-store"})]);const permission:Access=initialAccess??await parse(a!),mode=(await parse(m)).mode;if(scopeRef.current===scope&&metadataVersion.current===metaVersion){setAccess(permission);setServiceMode(mode);}})();
   try{await Promise.all([ordersRequest,metadataRequest]);if(!resourceId&&scopeRef.current===scope&&orderVersion.current===version)setError("");}
   catch(e){if(scopeRef.current===scope&&orderVersion.current===version)setError(e instanceof Error?e.message:"Unable to refresh kitchen orders");}
   finally{if(scopeRef.current===scope&&orderVersion.current===version)setLoading(false);}
@@ -48,7 +50,7 @@ export default function KitchenDisplay(){
   const action=next[o.status]||(o.status==="READY"&&serviceMode==="KITCHEN_MANAGED"?{status:"SERVED",label:"Mark served (handed to waiter)"}:undefined);
   if(!action||!canOperate||busy.has(o.id))return;
   const status=action.status;setSelected(null);
-  await run(o,status,async signal=>parse(await fetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+(status==="SERVED"?"/served":"/status"),{method:"PATCH",signal,headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status})})),
+  await run(o,status,async signal=>parse(await workspaceFetch(API+"/api/v1/tenants/"+tenant+"/staff-operations/kitchen/orders/"+o.id+(status==="SERVED"?"/served":"/status"),{method:"PATCH",signal,headers:{Authorization:"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({branchId:branch,status})})),
    confirmed=>{orderVersion.current++;setOrders(rows=>rows.map(row=>row.id===o.id&&row.status===o.status?{...row,status:confirmed}:row));},
    ()=>{void load("mutation");},
    e=>setError("Order #"+o.orderNumber+": "+(e instanceof Error?e.message:"Update not confirmed")+". Checking server status."));

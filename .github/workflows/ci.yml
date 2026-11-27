@@ -19,7 +19,7 @@ jobs:
       - name: Type check
         run: npm run typecheck
       - name: Verify guest and order regressions
-        run: node --test tests/guest-theme.test.mjs tests/guest-order-progress.test.mjs tests/guest-routes.test.mjs tests/order-dates.test.mjs tests/table-catalogue.test.mjs tests/staff-directory.test.mjs tests/floor-state.test.mjs tests/checkout.test.mjs tests/guest-cart-draft.test.mjs
+        run: node --test tests/guest-theme.test.mjs tests/guest-order-progress.test.mjs tests/guest-routes.test.mjs tests/order-dates.test.mjs tests/table-catalogue.test.mjs tests/staff-directory.test.mjs tests/floor-state.test.mjs tests/checkout.test.mjs tests/guest-cart-draft.test.mjs tests/workspace-fetch.test.mjs
       - name: Lint
         run: npm run lint
       - name: Production build
