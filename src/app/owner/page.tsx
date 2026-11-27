@@ -1,4 +1,6 @@
 "use client";
+import {closeWorkspaceSocket} from "@/lib/realtime/workspace-socket";
+import {clearWorkspaceCache} from "@/lib/workspace-fetch";
 import {workspaceFetch,readWorkspacePreview} from "@/lib/workspace-fetch";
 
 
@@ -99,9 +101,9 @@ export default function Home(){
   refresh(controller.signal);
   return()=>{controller.abort();};
  },[branchId,refresh,tenantId,token]);
- const realtime=useOrderEvents(token,tenantId,branchId,()=>{void refresh();});
+ const realtime=useOrderEvents(token,tenantId,branchId,()=>refresh());
 
- function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
+ function logout(){closeWorkspaceSocket();clearWorkspaceCache();localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.push("/login");}
  const selectedRestaurant=memberships.find(m=>m.tenantId===tenantId)?.tenantName??"Restaurant workspace";
  const selectedBranch=branches.find(b=>b.id===branchId)?.name??"Select branch";
  const sales=data?.dailySales??[];

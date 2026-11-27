@@ -1,5 +1,7 @@
 "use client";
 import {useEffect} from "react";
+import {closeWorkspaceSocket} from "./realtime/workspace-socket";
+import {clearWorkspaceCache} from "./workspace-fetch";
 import {useRouter,usePathname} from "next/navigation";
 
 const KEY="restaurantos_access_token";
@@ -14,6 +16,7 @@ export function isSessionExpired(token:string):boolean {
  }catch{return true;}
 }
 export function clearSessionAndRedirect(next:string){
+ closeWorkspaceSocket();clearWorkspaceCache();
  localStorage.removeItem(KEY);
  localStorage.removeItem(USER);
  const target=next.startsWith("/")&&!next.startsWith("//")?next:"/";

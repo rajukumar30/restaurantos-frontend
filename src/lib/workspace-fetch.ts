@@ -5,8 +5,9 @@ const entries=new Map<string,Entry>();
 const pending=new Map<string,Promise<Response>>();
 const MAX=24,BRANCH_TTL=20000,PREVIEW_TTL=30000;
 let session="",generation=0;
+const dashboardVersions=new Map<string,number>();
 const api=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
-function clear(){generation++;entries.clear();pending.clear();}
+function clear(){generation++;entries.clear();pending.clear();dashboardVersions.clear();}
 export function clearWorkspaceCache(){clear();session="";}
 function currentToken(){
  if(typeof window==="undefined")return "";
@@ -25,6 +26,12 @@ function kind(url:string){
   if(/^\/api\/v1\/tenants\/[0-9a-f-]{36}\/(dashboard|menu\/catalog)$/i.test(u.pathname))return "preview";
  }catch{}
  return "";
+}
+export function invalidateWorkspaceDashboard(token:string,tenantId:string,branchId:string){
+ if(!scope(token))return;
+ const url=api+"/api/v1/tenants/"+encodeURIComponent(tenantId)+"/dashboard?branchId="+encodeURIComponent(branchId);
+ entries.delete(url);dashboardVersions.set(url,(dashboardVersions.get(url)??0)+1);
+ if(dashboardVersions.size>MAX){const first=dashboardVersions.keys().next().value;if(first!==undefined)dashboardVersions.delete(first);}
 }
 function remember(url:string,body:string){
  if(body.length>1000000)return;
@@ -54,7 +61,7 @@ export async function workspaceFetch(url:string,init:RequestInit={}):Promise<Res
   try{return await fetch(url,init);}finally{if(scope(token))clear();}
  }
  if(!scoped||!type)return fetch(url,init);
- const epoch=generation;
+ const epoch=generation,version=dashboardVersions.get(url)??0;
  const branch=type==="branch";
  const cached=entries.get(url);
  if(branch&&init.cache!=="reload"&&cached&&Date.now()-cached.at<BRANCH_TTL)
@@ -69,7 +76,7 @@ export async function workspaceFetch(url:string,init:RequestInit={}):Promise<Res
   if(response.status===401||response.status===403){if(scope(token))clear();return response;}
   if(response.ok&&scope(token)&&generation===epoch){
    try{const body=await response.clone().text();const p=JSON.parse(body);
-    if(p?.success&&p.data!=null&&scope(token)&&generation===epoch)remember(url,body);
+    if(p?.success&&p.data!=null&&scope(token)&&generation===epoch&&(dashboardVersions.get(url)??0)===version)remember(url,body);
    }catch{/* Never cache invalid responses. */}
   }
   return response;

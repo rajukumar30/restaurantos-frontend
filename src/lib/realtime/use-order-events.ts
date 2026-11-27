@@ -1,78 +1,39 @@
 "use client";
-
 import {useEffect,useRef,useState} from "react";
-import {Client} from "@stomp/stompjs";
+import {subscribeWorkspace,type SocketStatus} from "./workspace-socket";
+import {invalidateWorkspaceDashboard} from "../workspace-fetch";
 
-const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
-type Status="connecting"|"connected"|"disconnected";
-type EventEnvelope={eventId:string;type:string;tenantId:string;branchId:string;resourceId:string;occurredAt:string};
-
-/** Subscribes only to the current tenant/branch; reconnects and reloads the REST snapshot. */
-export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:(resourceId?:string)=>void,topic:"orders"|"service-requests"|"billing"|"floor"="orders"){
- const [status,setStatus]=useState<Status>("disconnected");
- const onChangeRef=useRef(onChange);
- useEffect(()=>{onChangeRef.current=onChange;},[onChange]);
+/** One authenticated transport per login, scoped subscriptions and bounded event reconciliation. */
+export function useOrderEvents(token:string,tenantId:string,branchId:string,onChange:(resourceId?:string)=>void|Promise<void>,topic:"orders"|"service-requests"|"billing"|"floor"="orders"){
+ const [status,setStatus]=useState<SocketStatus>("disconnected");
+ const latest=useRef(onChange);
+ useEffect(()=>{latest.current=onChange;},[onChange]);
  useEffect(()=>{
-  if(!token||!tenantId||!branchId){return;}
-  let active=true;
-  let refreshTimer:ReturnType<typeof setTimeout>|undefined;
-  let lastRefresh=0,inFlight=false,pending=false,fullRefresh=false;
-  let pendingResourceId:string|undefined;
+  if(!token||!tenantId||!branchId){setStatus("disconnected");return;}
+  let active=true,timer:ReturnType<typeof setTimeout>|undefined;
+  let pending=false,inFlight=false,full=false,last=0,resource:string|undefined;
   const drain=()=>{
-   if(!active||!pending||inFlight||refreshTimer!==undefined)return;
-   refreshTimer=setTimeout(()=>{
-    refreshTimer=undefined;
-    if(!active||!pending)return;
-    const resourceId=fullRefresh?undefined:pendingResourceId;
-    pending=false;fullRefresh=false;pendingResourceId=undefined;
-    inFlight=true;lastRefresh=Date.now();
-    Promise.resolve().then(()=>active?onChangeRef.current(resourceId):undefined)
-     .catch(()=>{/* Consumers own their error state. */})
-     .finally(()=>{inFlight=false;drain();});
-   },Math.max(0,100-(Date.now()-lastRefresh)));
+   if(!active||!pending||inFlight||timer!==undefined)return;
+   timer=setTimeout(()=>{
+    timer=undefined;if(!active||!pending)return;
+    const id=full?undefined:resource;
+    pending=false;full=false;resource=undefined;inFlight=true;last=Date.now();
+    Promise.resolve().then(()=>active?latest.current(id):undefined).catch(()=>{}).finally(()=>{inFlight=false;drain();});
+   },Math.max(100,250-(Date.now()-last)));
   };
-  const scheduleRefresh=(resourceId?:string)=>{
-   if(!active)return;
-   pending=true;
-   if(!resourceId||(pendingResourceId&&pendingResourceId!==resourceId))fullRefresh=true;
-   else if(!fullRefresh)pendingResourceId=resourceId;
+  const schedule=(id?:string)=>{
+   if(!active)return;pending=true;
+   if(!id||(resource&&resource!==id))full=true;else if(!full)resource=id;
    drain();
   };
-  const refreshOnFocus=()=>{if(document.visibilityState==="visible")scheduleRefresh();};
-  window.addEventListener("focus",refreshOnFocus);
-  document.addEventListener("visibilitychange",refreshOnFocus);
-  const seen=new Set<string>();
-  const seenQueue:string[]=[];
-  const url=API.replace(/^http/,"ws").replace(/\/$/,"")+"/ws/realtime";
-  const client=new Client({
-   brokerURL:url,
-   connectHeaders:{Authorization:"Bearer "+token},
-   reconnectDelay:1500,
-   heartbeatIncoming:10000,
-   heartbeatOutgoing:10000,
-   onConnect:()=>{
-    if(!active)return;
-    setStatus("connected");
-    client.subscribe("/topic/tenants/"+tenantId+"/branches/"+branchId+"/"+topic,message=>{
-     if(!active)return;
-     try{
-      const event=JSON.parse(message.body) as EventEnvelope;
-      if(event.tenantId!==tenantId||event.branchId!==branchId||!event.eventId||seen.has(event.eventId))return;
-      seen.add(event.eventId);
-      seenQueue.push(event.eventId);
-      if(seenQueue.length>500)seen.delete(seenQueue.shift()!);
-      scheduleRefresh(event.resourceId);
-     }catch{/* Ignore malformed messages; the REST snapshot remains authoritative. */}
-    });
-    scheduleRefresh();
-   },
-   onWebSocketClose:()=>{if(active)setStatus("disconnected");},
-   onStompError:()=>{if(active)setStatus("disconnected");},
-   onWebSocketError:()=>{if(active)setStatus("disconnected");}
+  const reconcile=()=>schedule();
+  const release=subscribeWorkspace(token,tenantId,branchId,topic,{
+   status:setStatus,reconcile,
+   event:event=>{invalidateWorkspaceDashboard(token,tenantId,branchId);schedule(event.resourceId);}
   });
-  setStatus("connecting");
-  client.activate();
-  return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refreshOnFocus);document.removeEventListener("visibilitychange",refreshOnFocus);void client.deactivate();};
+  const focus=()=>{if(document.visibilityState==="visible")schedule();};
+  window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);
+  return()=>{active=false;if(timer!==undefined)clearTimeout(timer);release();window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);};
  },[token,tenantId,branchId,topic]);
  return status;
 }

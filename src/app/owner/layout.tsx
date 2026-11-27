@@ -1,4 +1,6 @@
 "use client";
+import {closeWorkspaceSocket} from "@/lib/realtime/workspace-socket";
+import {clearWorkspaceCache} from "@/lib/workspace-fetch";
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
@@ -40,7 +42,7 @@ export default function OwnerLayout({children}:{children:React.ReactNode}){
  if(requiredFeature&&featuresLoading)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]">Verifying subscription access…</main>;
  if(requiredFeature&&!allowedFeatures.has(requiredFeature))return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="text-lg font-bold">Feature not available</h1><p className="mt-2 text-sm text-[#77796f]">This feature is not enabled under the restaurant&apos;s current subscription.</p><Link href="/owner/features" className="mt-5 inline-block rounded-xl bg-[#1b241f] px-5 py-3 text-sm text-white">View plan & features</Link></div></main>;
  const active=(href:string)=>pathname===href||pathname+"/"===href;
- const logout=()=>{if(!window.dispatchEvent(new Event("krlio:before-owner-signout",{cancelable:true})))return;localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");};
+ const logout=()=>{if(!window.dispatchEvent(new Event("krlio:before-owner-signout",{cancelable:true})))return;closeWorkspaceSocket();clearWorkspaceCache();localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");};
  return <div className="owner-portal min-h-screen bg-[#f7f7f4] text-[#20241f] lg:flex">
  {open&&<button aria-label="Close navigation" className="fixed inset-0 z-30 bg-black/50 lg:hidden" onClick={()=>setOpen(false)}/>}
  <aside className={`fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#1b241f] text-white transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${open?"translate-x-0":"-translate-x-full"}`}>

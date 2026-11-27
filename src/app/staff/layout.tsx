@@ -1,4 +1,6 @@
 "use client";
+import {closeWorkspaceSocket} from "@/lib/realtime/workspace-socket";
+import {clearWorkspaceCache} from "@/lib/workspace-fetch";
 import Link from "next/link";
 import {usePathname,useRouter} from "next/navigation";
 import {useEffect,useState} from "react";
@@ -121,7 +123,7 @@ export default function StaffLayout({children}:{children:React.ReactNode}){
  const title=links.find(item=>item.href===current)?.label||"Staff workspace";
  const role=manager?"Manager":resolvedRole==="KITCHEN"?"Kitchen staff":resolvedRole==="WAITER"?"Waiter":resolvedRole==="CASHIER"?"Cashier":"Staff";
  useEffect(()=>{if(loading||error||roleDisabled)return;if(pathname==="/staff/dashboard"||pathname==="/staff"||pathname==="/staff/"){router.replace(home);}},[loading,error,roleDisabled,pathname,home,router]);
- function logout(){localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
+ function logout(){closeWorkspaceSocket();clearWorkspaceCache();localStorage.removeItem("restaurantos_access_token");localStorage.removeItem("restaurantos_user");router.replace("/login");}
  if(loading||!featuresReady&&!error)return <main className="grid min-h-screen place-items-center text-sm text-[#77796f]"><div className="text-center"><p className="font-semibold">Opening staff workspace…</p>{showSlowMessage&&<><p className="mt-2 text-xs text-[#77796f]">Still connecting securely to your restaurant. Please keep this page open.</p></>}</div></main>;
  if(error)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="font-bold">Staff access unavailable</h1><p className="mt-2 text-sm text-[#77796f]">{error}</p><div className="mt-5 flex justify-center gap-2"><button className="rounded-xl border px-4 py-2" onClick={()=>{setLoading(true);setError("");setRetry(n=>n+1);}}>Retry</button><button className="rounded-xl bg-[#1b241f] px-4 py-2 text-white" onClick={logout}>Return to login</button></div></div></main>;
  if(roleDisabled)return <main className="grid min-h-screen place-items-center bg-[#f7f7f4] p-6"><div className="max-w-md rounded-2xl border bg-white p-8 text-center"><ShieldCheck className="mx-auto mb-3 text-[#e7764c]"/><h1 className="text-lg font-bold">Account access disabled</h1><p className="mt-2 text-sm text-[#77796f]">Your {resolvedRole==="KITCHEN"?"Kitchen":"Waiter"} feature is not included in the restaurant&apos;s active plan. Contact your restaurant administrator.</p><button onClick={logout} className="mt-5 rounded-xl bg-[#1b241f] px-5 py-3 text-sm text-white">Return to login</button></div></main>;
