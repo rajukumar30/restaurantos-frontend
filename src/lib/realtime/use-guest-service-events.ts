@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from "react";
 import {Client} from "@stomp/stompjs";
 const API=process.env.NEXT_PUBLIC_API_BASE_URL??"https://krlio-g5egfgctbteadvc4.westus3-01.azurewebsites.net";
-export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=>void){
+export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=>void,topic:"service-requests"|"bill"="service-requests"){
  const [status,setStatus]=useState<"connecting"|"connected"|"disconnected">("disconnected");
  const latest=useRef(onChange);
  useEffect(()=>{latest.current=onChange;},[onChange]);
@@ -32,7 +32,7 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
    onConnect:()=>{
     if(!active)return;
     setStatus("connected");
-    client.subscribe("/topic/guest/tables/"+tableId+"/service-requests",()=>{if(active)scheduleRefresh();});
+    client.subscribe("/topic/guest/tables/"+tableId+"/"+topic,()=>{if(active)scheduleRefresh();});
     scheduleRefresh();
    },
    onWebSocketClose:()=>{if(active)setStatus("disconnected");},
@@ -42,6 +42,6 @@ export function useGuestServiceEvents(qrToken:string,tableId:string,onChange:()=
   setStatus("connecting");
   client.activate();
   return()=>{active=false;if(refreshTimer!==undefined)clearTimeout(refreshTimer);window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);void client.deactivate();};
- },[qrToken,tableId]);
+ },[qrToken,tableId,topic]);
  return status;
 }
